@@ -6,7 +6,7 @@ using NeuroRoute.Service.Models;
 
 namespace NeuroRoute.Service.Gpu;
 
-public sealed class GpuClient
+public sealed class GpuClient : IGpuClient
 {
     private readonly HttpClient _httpClient;
     private readonly ILogger<GpuClient> _logger;
