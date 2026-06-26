@@ -28,6 +28,15 @@ public sealed class OnnxSessionFactory : IDisposable
         return _session;
     }
 
+    public void ResetSession()
+    {
+        lock (_lock)
+        {
+            _session?.Dispose();
+            _session = null;
+        }
+    }
+
     public void Dispose()
     {
         if (!_disposed)
