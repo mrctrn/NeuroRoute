@@ -329,6 +329,60 @@ Configure the URL in `appsettings.json`:
 
 ---
 
+## 7.5 System Tray Application
+
+### What It Does
+
+`NeuroRoute.Tray.exe` is a companion application that runs in the Windows system tray (notification area). It provides:
+
+- **Status at a glance** — icon color shows service health (green = healthy, yellow = degraded, red = unhealthy, gray = stopped)
+- **Context menu** — right-click for actions (open dashboard, restart NPU, reload config, stop service, etc.)
+- **Auto-start** — registers itself in `HKCU\Software\Microsoft\Windows\CurrentVersion\Run` on first launch
+
+### Build
+
+```pwsh
+dotnet publish .\NeuroRoute.Tray\NeuroRoute.Tray.csproj `
+  --configuration Release `
+  --runtime win-x64 `
+  --self-contained true `
+  --output C:\NeuroRoute\tray
+```
+
+Output: `C:\NeuroRoute\tray\NeuroRoute.Tray.exe`
+
+### Configuration
+
+Copy `appsettings.json` from the publish directory. Settings are in the `NeuroRoute` section:
+
+| Key | Default | Description |
+|-----|---------|-------------|
+| `ServiceEndpoint` | `http://localhost:5000` | NeuroRoute service URL |
+| `PollIntervalSeconds` | `5` | How often to check health |
+| `GpuGuiUrl` | `http://localhost:1234` | GPU backend UI (e.g., LM Studio) |
+| `AdminKey` | `""` | Optional admin auth key (empty = no auth) |
+| `AutoStart` | `true` | Register for auto-start on login |
+
+### Usage
+
+Launch manually:
+
+```pwsh
+& C:\NeuroRoute\tray\NeuroRoute.Tray.exe
+```
+
+Or let it auto-start (enabled by default). To disable auto-start, set `AutoStart: false` in `appsettings.json`.
+
+### Uninstall Auto-Start
+
+Remove the registry entry:
+
+```pwsh
+Remove-ItemProperty -Path "HKCU:\Software\Microsoft\Windows\CurrentVersion\Run" -Name "NeuroRoute.Tray"
+```
+
+---
+
 ## 8. Directory Layout (Production)
 
 ```
