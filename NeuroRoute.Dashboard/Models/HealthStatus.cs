@@ -24,4 +24,16 @@ public sealed class ComponentHealth
 
     [JsonPropertyName("message")]
     public string? Message { get; set; }
+
+    [JsonPropertyName("backend")]
+    public string Backend { get; set; } = "";
+
+    [JsonPropertyName("endpoint")]
+    public string Endpoint { get; set; } = "";
+
+    [JsonPropertyName("model")]
+    public string Model { get; set; } = "";
+
+    [JsonPropertyName("model_loaded")]
+    public bool ModelLoaded { get; set; }
 }

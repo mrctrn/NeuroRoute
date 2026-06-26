@@ -35,4 +35,24 @@ public sealed class NeuroRouteApiClient
             return null;
         }
     }
+
+    public async Task<bool> RestartBackendAsync()
+    {
+        try
+        {
+            var response = await _http.PostAsync("/v1/admin/restart-backend", null);
+            return response.IsSuccessStatusCode;
+        }
+        catch { return false; }
+    }
+
+    public async Task<bool> ReloadConfigAsync()
+    {
+        try
+        {
+            var response = await _http.PostAsync("/v1/admin/reload-config", null);
+            return response.IsSuccessStatusCode;
+        }
+        catch { return false; }
+    }
 }
