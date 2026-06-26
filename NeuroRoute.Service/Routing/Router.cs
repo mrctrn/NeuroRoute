@@ -14,7 +14,7 @@ public sealed class Router
     private readonly NpuPlanner _planner;
     private readonly PromptBuilder _promptBuilder;
     private readonly NpuModel _npuModel;
-    private readonly GpuClient _gpuClient;
+    private readonly IGpuClient _gpuClient;
     private readonly MetricsService _metrics;
     private readonly ILogger<Router> _logger;
 
@@ -22,7 +22,7 @@ public sealed class Router
         NpuPlanner planner,
         PromptBuilder promptBuilder,
         NpuModel npuModel,
-        GpuClient gpuClient,
+        IGpuClient gpuClient,
         MetricsService metrics,
         ILogger<Router> logger)
     {
