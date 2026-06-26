@@ -2,6 +2,7 @@ using System.Reflection;
 using NeuroRoute.Service.Gpu;
 using NeuroRoute.Service.Models;
 using NeuroRoute.Service.Npu;
+using NeuroRoute.Service.Testing;
 using Microsoft.Extensions.Options;
 
 namespace NeuroRoute.Service.Services;
@@ -10,6 +11,7 @@ public sealed class HealthService
 {
     private readonly OnnxSessionFactory _onnxSessionFactory;
     private readonly GpuClient _gpuClient;
+    private readonly MockScenario? _mockScenario;
     private readonly FlmProcessManager? _flmProcessManager;
     private readonly IOptions<NeuroRouteOptions> _options;
     private readonly ILogger<HealthService> _logger;
@@ -23,13 +25,15 @@ public sealed class HealthService
         GpuClient gpuClient,
         IOptions<NeuroRouteOptions> options,
         ILogger<HealthService> logger,
-        FlmProcessManager? flmProcessManager = null)
+        FlmProcessManager? flmProcessManager = null,
+        MockScenario? mockScenario = null)
     {
         _onnxSessionFactory = onnxSessionFactory;
         _gpuClient = gpuClient;
         _flmProcessManager = flmProcessManager;
         _options = options;
         _logger = logger;
+        _mockScenario = mockScenario;
     }
 
     public async Task<HealthStatus> GetHealthAsync(CancellationToken ct = default)
@@ -63,6 +67,18 @@ public sealed class HealthService
 
     private ComponentHealth GetNpuHealth()
     {
+        if (_mockScenario is not null)
+        {
+            return new ComponentHealth
+            {
+                Status = _mockScenario.NpuAvailable ? "healthy" : "unhealthy",
+                Message = _mockScenario.NpuAvailable ? "Mock NPU backend running" : "Mock NPU backend disabled",
+                Backend = "mock",
+                Model = _mockScenario.NpuModel,
+                ModelLoaded = _mockScenario.NpuAvailable
+            };
+        }
+
         var backend = _options.Value.NpuBackend;
 
         if (backend.Equals("flm", StringComparison.OrdinalIgnoreCase))
@@ -120,6 +136,20 @@ public sealed class HealthService
 
     private async Task<ComponentHealth> GetGpuHealthAsync(CancellationToken ct)
     {
+        if (_mockScenario is not null)
+        {
+            _lastGpuHealth = new ComponentHealth
+            {
+                Status = _mockScenario.GpuAvailable ? "healthy" : "unhealthy",
+                Message = _mockScenario.GpuAvailable ? "Mock GPU available" : "Mock GPU disabled",
+                Endpoint = _mockScenario.GpuEndpoint,
+                Model = _mockScenario.GpuModel,
+                ModelLoaded = _mockScenario.GpuAvailable
+            };
+            _lastGpuCheck = DateTime.UtcNow;
+            return _lastGpuHealth;
+        }
+
         if (DateTime.UtcNow - _lastGpuCheck < CacheDuration)
             return _lastGpuHealth;
 
