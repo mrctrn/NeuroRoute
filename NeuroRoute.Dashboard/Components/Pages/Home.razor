@@ -1,0 +1,139 @@
+﻿@page "/"
+@rendermode InteractiveServer
+@using NeuroRoute.Dashboard.Models
+@inject NeuroRoute.Dashboard.Services.NeuroRouteApiClient Api
+@implements IDisposable
+
+<PageTitle>NeuroRoute Dashboard</PageTitle>
+
+<h1 class="mb-4">NeuroRoute Dashboard</h1>
+
+@if (_health is null)
+{
+    <div class="alert alert-danger">
+        <strong>Cannot reach NeuroRoute service.</strong>
+        Ensure it is running at <code>http://localhost:5000</code>.
+    </div>
+}
+else
+{
+    <div class="row mb-4">
+        <div class="col">
+            <div class="card @(_health.Status == "healthy" ? "border-success" : _health.Status == "degraded" ? "border-warning" : "border-danger")">
+                <div class="card-body">
+                    <h5 class="card-title">
+                        Service Status
+                        <span class="badge @(_health.Status == "healthy" ? "bg-success" : _health.Status == "degraded" ? "bg-warning" : "bg-danger")">
+                            @_health.Status
+                        </span>
+                    </h5>
+                    <p class="card-text small text-muted">
+                        Version: @_health.Version &middot; Uptime: @_health.Uptime
+                    </p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="row mb-4">
+        <div class="col-md-6">
+            <div class="card">
+                <div class="card-header">Components</div>
+                <ul class="list-group list-group-flush">
+                    @foreach (var (name, comp) in _health.Components)
+                    {
+                        <li class="list-group-item d-flex justify-content-between align-items-center">
+                            @name
+                            <span>
+                                <span class="badge @(comp.Status == "healthy" ? "bg-success" : "bg-danger") me-2">@comp.Status</span>
+                                <small class="text-muted">@comp.Message</small>
+                            </span>
+                        </li>
+                    }
+                </ul>
+            </div>
+        </div>
+
+        <div class="col-md-6">
+            <div class="card">
+                <div class="card-header">Metrics</div>
+                <div class="card-body">
+                    @if (_metrics is null)
+                    {
+                        <p class="text-muted">No metrics available.</p>
+                    }
+                    else
+                    {
+                        <div class="row text-center">
+                            <div class="col-4 mb-3">
+                                <h3>@_metrics.TotalRequests</h3>
+                                <small class="text-muted">Total</small>
+                            </div>
+                            <div class="col-4 mb-3">
+                                <h3>@_metrics.NpuHandled</h3>
+                                <small class="text-muted text-success">NPU</small>
+                            </div>
+                            <div class="col-4 mb-3">
+                                <h3>@_metrics.GpuEscalated</h3>
+                                <small class="text-muted text-warning">GPU</small>
+                            </div>
+                        </div>
+
+                        @if (_metrics.ByTaskType.Count > 0)
+                        {
+                            <h6>By Task Type</h6>
+                            <table class="table table-sm small">
+                                <tbody>
+                                    @foreach (var (task, count) in _metrics.ByTaskType)
+                                    {
+                                        <tr>
+                                            <td>@task</td>
+                                            <td class="text-end">@count</td>
+                                        </tr>
+                                    }
+                                </tbody>
+                            </table>
+                        }
+                    }
+                </div>
+            </div>
+        </div>
+    </div>
+}
+
+@code {
+    private HealthStatus? _health;
+    private MetricsSnapshot? _metrics;
+    private PeriodicTimer? _timer;
+    private CancellationTokenSource? _cts;
+
+    protected override async Task OnInitializedAsync()
+    {
+        await Refresh();
+        _cts = new CancellationTokenSource();
+        _timer = new PeriodicTimer(TimeSpan.FromSeconds(5));
+        _ = PollAsync(_cts.Token);
+    }
+
+    private async Task Refresh()
+    {
+        _health = await Api.GetHealthAsync();
+        _metrics = await Api.GetMetricsAsync();
+    }
+
+    private async Task PollAsync(CancellationToken ct)
+    {
+        while (await _timer!.WaitForNextTickAsync(ct))
+        {
+            await Refresh();
+            StateHasChanged();
+        }
+    }
+
+    public void Dispose()
+    {
+        _cts?.Cancel();
+        _cts?.Dispose();
+        _timer?.Dispose();
+    }
+}

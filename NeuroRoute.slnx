@@ -1,0 +1,5 @@
+<Solution>
+  <Project Path="NeuroRoute.Dashboard/NeuroRoute.Dashboard.csproj" />
+  <Project Path="NeuroRoute.Service/NeuroRoute.Service.csproj" />
+  <Project Path="NeuroRoute.Tests/NeuroRoute.Tests.csproj" />
+</Solution>
