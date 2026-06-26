@@ -10,6 +10,7 @@
     <RuntimeIdentifier>win-x64</RuntimeIdentifier>
     <AssemblyName>NeuroRoute.Service</AssemblyName>
     <RootNamespace>NeuroRoute.Service</RootNamespace>
+    <NoWarn>$(NoWarn);CA1416</NoWarn>
   </PropertyGroup>
 
   <ItemGroup>
