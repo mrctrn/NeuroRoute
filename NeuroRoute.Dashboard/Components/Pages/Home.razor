@@ -36,6 +36,64 @@ else
     </div>
 
     <div class="row mb-4">
+        @if (_health.Components.TryGetValue("npu", out var npu))
+        {
+            <div class="col-md-6 mb-3">
+                <div class="card h-100">
+                    <div class="card-header">
+                        <strong>NPU Backend</strong>
+                        <span class="badge @(npu.Status == "healthy" ? "bg-success" : npu.Status == "degraded" ? "bg-warning" : "bg-danger") float-end">@npu.Status</span>
+                    </div>
+                    <div class="card-body">
+                        @if (!string.IsNullOrEmpty(npu.Backend))
+                        {
+                            <p class="card-text">Backend: <code>@npu.Backend</code></p>
+                        }
+                        @if (!string.IsNullOrEmpty(npu.Model))
+                        {
+                            <p class="card-text">Model: <code>@npu.Model</code></p>
+                        }
+                        @if (!string.IsNullOrEmpty(npu.Message))
+                        {
+                            <p class="card-text small text-muted">@npu.Message</p>
+                        }
+                    </div>
+                </div>
+            </div>
+        }
+
+        @if (_health.Components.TryGetValue("gpu", out var gpu))
+        {
+            <div class="col-md-6 mb-3">
+                <div class="card h-100">
+                    <div class="card-header">
+                        <strong>GPU Backend</strong>
+                        <span class="badge @(gpu.Status == "healthy" ? "bg-success" : gpu.Status == "degraded" ? "bg-warning" : "bg-danger") float-end">@gpu.Status</span>
+                    </div>
+                    <div class="card-body">
+                        @if (!string.IsNullOrEmpty(gpu.Model))
+                        {
+                            <p class="card-text">Model: <code>@gpu.Model</code></p>
+                        }
+                        @if (!string.IsNullOrEmpty(gpu.Endpoint))
+                        {
+                            <p class="card-text">Endpoint: <code>@gpu.Endpoint</code></p>
+                        }
+                        @if (gpu.ModelLoaded)
+                        {
+                            <p class="text-success small">Model loaded</p>
+                        }
+                        @if (!string.IsNullOrEmpty(gpu.Message))
+                        {
+                            <p class="card-text small text-muted">@gpu.Message</p>
+                        }
+                    </div>
+                </div>
+            </div>
+        }
+    </div>
+
+    <div class="row mb-4">
         <div class="col-md-6">
             <div class="card">
                 <div class="card-header">Components</div>
@@ -45,7 +103,7 @@ else
                         <li class="list-group-item d-flex justify-content-between align-items-center">
                             @name
                             <span>
-                                <span class="badge @(comp.Status == "healthy" ? "bg-success" : "bg-danger") me-2">@comp.Status</span>
+                                <span class="badge @(comp.Status == "healthy" ? "bg-success" : comp.Status == "degraded" ? "bg-warning" : "bg-danger") me-2">@comp.Status</span>
                                 <small class="text-muted">@comp.Message</small>
                             </span>
                         </li>
@@ -99,6 +157,22 @@ else
             </div>
         </div>
     </div>
+
+    <div class="row mb-4">
+        <div class="col">
+            <div class="card">
+                <div class="card-header">Administration</div>
+                <div class="card-body">
+                    <button class="btn btn-warning me-2" @onclick="RestartBackend" disabled="@_isBusy">
+                        Restart NPU Backend
+                    </button>
+                    <button class="btn btn-secondary" @onclick="ReloadConfig" disabled="@_isBusy">
+                        Reload Configuration
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
 }
 
 @code {
@@ -106,6 +180,7 @@ else
     private MetricsSnapshot? _metrics;
     private PeriodicTimer? _timer;
     private CancellationTokenSource? _cts;
+    private bool _isBusy;
 
     protected override async Task OnInitializedAsync()
     {
@@ -128,6 +203,20 @@ else
             await Refresh();
             StateHasChanged();
         }
+    }
+
+    private async Task RestartBackend()
+    {
+        _isBusy = true;
+        await Api.RestartBackendAsync();
+        _isBusy = false;
+    }
+
+    private async Task ReloadConfig()
+    {
+        _isBusy = true;
+        await Api.ReloadConfigAsync();
+        _isBusy = false;
     }
 
     public void Dispose()
