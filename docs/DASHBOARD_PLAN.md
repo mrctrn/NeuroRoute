@@ -149,7 +149,7 @@ All added to `NeuroRoute.Service`:
 | `/v1/admin/reload-config` | POST | Hot-reload `appsettings.json` without restarting the service |
 | `/v1/admin/logs` | GET | Returns recent log entries as JSON (tail of EventLog or file) |
 
-All admin endpoints check for a `X-NeuroRoute-Admin-Key` header (configured in `appsettings.json`) to prevent unauthorized access from other processes on the machine. The tray sends this key automatically.
+Admin endpoints bound to localhost only. Optional `X-NeuroRoute-Admin-Key` header check (see §7 Security).
 
 ---
 
