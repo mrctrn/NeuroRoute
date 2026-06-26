@@ -24,7 +24,7 @@ public sealed class RouterTests
         var npuModel = new NpuModel(
             onnxBackend, NullLogger<NpuModel>.Instance);
         var httpClient = new HttpClient();
-        var gpuClient = new GpuClient(
+        IGpuClient gpuClient = new GpuClient(
             httpClient, NullLogger<GpuClient>.Instance);
         var metrics = new MetricsService();
         var logger = NullLogger<Router>.Instance;
