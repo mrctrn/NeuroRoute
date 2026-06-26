@@ -1,3 +1,4 @@
+using System.Linq;
 using System.Net.Http.Json;
 using System.Runtime.CompilerServices;
 using System.Text.Json;
@@ -62,6 +63,25 @@ public sealed class GpuClient
         return response.IsSuccessStatusCode;
     }
 
+    public async Task<List<string>> GetAvailableModelsAsync(CancellationToken ct = default)
+    {
+        for (int attempt = 0; attempt < MaxRetries; attempt++)
+        {
+            try
+            {
+                var response = await _httpClient.GetAsync("/v1/models", ct);
+                response.EnsureSuccessStatusCode();
+                var body = await response.Content.ReadFromJsonAsync<GpuModelsResponse>(JsonOptions, ct);
+                return body?.Data?.Select(m => m.Id).ToList() ?? [];
+            }
+            catch (HttpRequestException) when (attempt < MaxRetries - 1)
+            {
+                await Task.Delay(TimeSpan.FromSeconds(1 * (attempt + 1)), ct);
+            }
+        }
+        return [];
+    }
+
     private async Task<HttpResponseMessage> SendStreamRequestAsync(
         ChatRequest request, CancellationToken ct)
     {
@@ -123,4 +143,14 @@ public sealed class GpuClient
             }
         }
     }
+}
+
+internal sealed class GpuModelsResponse
+{
+    public List<GpuModelData> Data { get; set; } = [];
+}
+
+internal sealed class GpuModelData
+{
+    public string Id { get; set; } = "";
 }
