@@ -82,6 +82,21 @@ Invoke-RestMethod -Uri http://localhost:5000/v1/chat/completions `
 | [DAPR_ANALYSIS.md](docs/DAPR_ANALYSIS.md) | Dapr AI integration analysis (pro/contra/flow) |
 | [MOCK_DEVELOPMENT.md](docs/MOCK_DEVELOPMENT.md) | Mock backends & Playwright testing design |
 
+## Dev Mode (No Hardware)
+
+Run with mock NPU/GPU backends — no AMD NPU, no GPU, no model files needed:
+
+```pwsh
+$env:NeuroRoute__UseMockBackends = "true"
+dotnet run --project NeuroRoute.Service
+
+# In another terminal:
+dotnet run --project NeuroRoute.Dashboard --urls http://localhost:5001
+```
+
+Then open `http://localhost:5001`. Program the fakes via `POST /v1/admin/mock/scenario`.
+See [`docs/DEPLOYMENT.md`](docs/DEPLOYMENT.md#9-dev-mode--no-hardware-required) for details.
+
 ## License
 
 MIT
