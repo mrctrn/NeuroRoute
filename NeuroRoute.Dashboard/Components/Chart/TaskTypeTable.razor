@@ -1,0 +1,49 @@
+<MudCard Class="h-100">
+    <MudCardHeader>
+        <CardHeaderContent>
+            <MudText Typo="Typo.subtitle2">Task Types</MudText>
+        </CardHeaderContent>
+    </MudCardHeader>
+    <MudCardContent>
+        @if (Metrics is null || Metrics.ByTaskType.Count == 0)
+        {
+            <MudText Typo="Typo.body2" Class="text-muted text-center py-4">Awaiting data...</MudText>
+        }
+        else
+        {
+            <MudTable Items="@_rows" Dense="true" Hover="true" Outlined="true" Class="mb-0">
+                <HeaderContent>
+                    <MudTh><MudText Typo="Typo.caption">Type</MudText></MudTh>
+                    <MudTh><MudText Typo="Typo.caption">Count</MudText></MudTh>
+                </HeaderContent>
+                <RowTemplate>
+                    <MudTd><MudText Typo="Typo.body2" Class="font-monospace">@context.Type</MudText></MudTd>
+                    <MudTd><MudText Typo="Typo.body2">@context.Count</MudText></MudTd>
+                </RowTemplate>
+            </MudTable>
+        }
+    </MudCardContent>
+</MudCard>
+
+@code {
+    [Parameter]
+    public MetricsSnapshot? Metrics { get; set; }
+
+    private List<TaskTypeRow> _rows
+    {
+        get
+        {
+            if (Metrics is null) return [];
+            return Metrics.ByTaskType
+                .OrderByDescending(k => k.Value)
+                .Select(k => new TaskTypeRow { Type = k.Key, Count = k.Value })
+                .ToList();
+        }
+    }
+
+    private class TaskTypeRow
+    {
+        public string Type { get; set; } = "";
+        public long Count { get; set; }
+    }
+}

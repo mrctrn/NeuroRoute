@@ -1,0 +1,48 @@
+<MudCard Class="h-100">
+    <MudCardHeader>
+        <CardHeaderContent>
+            <MudText Typo="Typo.subtitle2">Case Distribution</MudText>
+        </CardHeaderContent>
+    </MudCardHeader>
+    <MudCardContent>
+        @if (Metrics is null || Metrics.ByCase.Count == 0)
+        {
+            <MudText Typo="Typo.body2" Class="text-muted text-center py-4">Awaiting data...</MudText>
+        }
+        else
+        {
+            <MudChart T="double" ChartType="ChartType.Pie" InputValues="@_values" InputLabels="@_labels" InputColors="@_colors" Width="100%" Height="200px" />
+            <div class="d-flex justify-content-center gap-3 mt-2 flex-wrap">
+                @foreach (var kvp in Metrics.ByCase.OrderByDescending(k => k.Value))
+                {
+                    <MudText Typo="Typo.caption" Class="font-monospace">@kvp.Key: @kvp.Value</MudText>
+                }
+            </div>
+        }
+    </MudCardContent>
+</MudCard>
+
+@code {
+    [Parameter]
+    public MetricsSnapshot? Metrics { get; set; }
+
+    private double[] _values
+    {
+        get
+        {
+            if (Metrics is null) return [];
+            return Metrics.ByCase.OrderByDescending(k => k.Value).Select(k => (double)k.Value).ToArray();
+        }
+    }
+
+    private string[] _labels
+    {
+        get
+        {
+            if (Metrics is null) return [];
+            return Metrics.ByCase.OrderByDescending(k => k.Value).Select(k => k.Key.Replace("case_", "Case ")).ToArray();
+        }
+    }
+
+    private string[] _colors => ["#3F51B5", "#FF4081", "#4CAF50", "#FF9800", "#9C27B0", "#00BCD4"];
+}

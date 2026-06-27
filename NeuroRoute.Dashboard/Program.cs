@@ -1,3 +1,4 @@
+using MudBlazor.Services;
 using NeuroRoute.Dashboard.Components;
 using NeuroRoute.Dashboard.Services;
 
@@ -5,6 +6,7 @@ var builder = WebApplication.CreateBuilder(args);
 
 builder.Services.AddRazorComponents()
     .AddInteractiveServerComponents();
+builder.Services.AddMudServices();
 
 builder.Services.AddHttpClient<NeuroRouteApiClient>(client =>
 {

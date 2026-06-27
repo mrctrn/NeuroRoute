@@ -1,0 +1,51 @@
+@inject IDialogService Dialog
+@inject ISnackbar Snackbar
+@inject NeuroRoute.Dashboard.Services.NeuroRouteApiClient Api
+
+<MudCard>
+    <MudCardHeader>
+        <CardHeaderContent>
+            <MudText Typo="Typo.subtitle2">Administration</MudText>
+        </CardHeaderContent>
+    </MudCardHeader>
+    <MudCardContent>
+        <MudButton Variant="Variant.Filled" Color="Color.Warning" Class="mr-2" OnClick="@(() => ConfirmAction("Restart NPU Backend", "Are you sure you want to restart the NPU backend? This will interrupt any running NPU requests.", Api.RestartBackendAsync))" Disabled="@_isBusy">
+            Restart NPU Backend
+        </MudButton>
+        <MudButton Variant="Variant.Filled" Color="Color.Secondary" Class="mr-2" OnClick="@(() => ConfirmAction("Reload Configuration", "Are you sure you want to reload the configuration? Some changes may require a full restart.", Api.ReloadConfigAsync))" Disabled="@_isBusy">
+            Reload Configuration
+        </MudButton>
+        <MudButton Variant="Variant.Filled" Color="Color.Error" OnClick="@(() => ConfirmAction("Stop Service", "Are you sure you want to stop the NeuroRoute service? The dashboard and API will become unavailable.", Api.StopServiceAsync))" Disabled="@_isBusy">
+            Stop Service
+        </MudButton>
+    </MudCardContent>
+</MudCard>
+
+@code {
+    private bool _isBusy;
+
+    private async Task ConfirmAction(string title, string message, Func<Task<bool>> action)
+    {
+        var parameters = new DialogParameters<ConfirmationDialog>
+        {
+            { x => x.Title, title },
+            { x => x.Message, message }
+        };
+        var options = new DialogOptions { CloseButton = true, MaxWidth = MaxWidth.ExtraSmall, FullWidth = true };
+
+        var dialog = await Dialog.ShowAsync<ConfirmationDialog>(title, parameters, options);
+        var result = await dialog.Result;
+
+        if (result is { Canceled: false })
+        {
+            _isBusy = true;
+            var success = await action();
+            _isBusy = false;
+
+            if (success)
+                Snackbar.Add($"{title} completed successfully.", Severity.Success);
+            else
+                Snackbar.Add($"{title} failed.", Severity.Error);
+        }
+    }
+}

@@ -6,181 +6,48 @@
 
 <PageTitle>NeuroRoute Dashboard</PageTitle>
 
-<h1 class="mb-4">NeuroRoute Dashboard</h1>
+<StatusBanner Health="@_health" />
 
-@if (_health is null)
-{
-    <div class="alert alert-danger">
-        <strong>Cannot reach NeuroRoute service.</strong>
-        Ensure it is running at <code>http://localhost:5000</code>.
-    </div>
-}
-else
-{
-    <div class="row mb-4">
-        <div class="col">
-            <div class="card @(_health.Status == "healthy" ? "border-success" : _health.Status == "degraded" ? "border-warning" : "border-danger")">
-                <div class="card-body">
-                    <h5 class="card-title">
-                        Service Status
-                        <span class="badge @(_health.Status == "healthy" ? "bg-success" : _health.Status == "degraded" ? "bg-warning" : "bg-danger")">
-                            @_health.Status
-                        </span>
-                    </h5>
-                    <p class="card-text small text-muted">
-                        Version: @_health.Version &middot; Uptime: @_health.Uptime
-                    </p>
-                </div>
-            </div>
-        </div>
-    </div>
+<MudGrid Spacing="4">
+    <MudItem xs="12" md="6">
+        <ComponentCard Title="NPU Backend" Component="@_npu" />
+    </MudItem>
+    <MudItem xs="12" md="6">
+        <ComponentCard Title="GPU Backend" Component="@_gpu" />
+    </MudItem>
+</MudGrid>
 
-    <div class="row mb-4">
-        @if (_health.Components.TryGetValue("npu", out var npu))
-        {
-            <div class="col-md-6 mb-3">
-                <div class="card h-100">
-                    <div class="card-header">
-                        <strong>NPU Backend</strong>
-                        <span class="badge @(npu.Status == "healthy" ? "bg-success" : npu.Status == "degraded" ? "bg-warning" : "bg-danger") float-end">@npu.Status</span>
-                    </div>
-                    <div class="card-body">
-                        @if (!string.IsNullOrEmpty(npu.Backend))
-                        {
-                            <p class="card-text">Backend: <code>@npu.Backend</code></p>
-                        }
-                        @if (!string.IsNullOrEmpty(npu.Model))
-                        {
-                            <p class="card-text">Model: <code>@npu.Model</code></p>
-                        }
-                        @if (!string.IsNullOrEmpty(npu.Message))
-                        {
-                            <p class="card-text small text-muted">@npu.Message</p>
-                        }
-                    </div>
-                </div>
-            </div>
-        }
+<MudGrid Spacing="4" Class="mt-2">
+    <MudItem xs="12" md="6">
+        <RoutingRatioChart Metrics="@_metrics" />
+    </MudItem>
+    <MudItem xs="12" md="6">
+        <StreamingRatioChart Metrics="@_metrics" />
+    </MudItem>
+</MudGrid>
 
-        @if (_health.Components.TryGetValue("gpu", out var gpu))
-        {
-            <div class="col-md-6 mb-3">
-                <div class="card h-100">
-                    <div class="card-header">
-                        <strong>GPU Backend</strong>
-                        <span class="badge @(gpu.Status == "healthy" ? "bg-success" : gpu.Status == "degraded" ? "bg-warning" : "bg-danger") float-end">@gpu.Status</span>
-                    </div>
-                    <div class="card-body">
-                        @if (!string.IsNullOrEmpty(gpu.Model))
-                        {
-                            <p class="card-text">Model: <code>@gpu.Model</code></p>
-                        }
-                        @if (!string.IsNullOrEmpty(gpu.Endpoint))
-                        {
-                            <p class="card-text">Endpoint: <code>@gpu.Endpoint</code></p>
-                        }
-                        @if (gpu.ModelLoaded)
-                        {
-                            <p class="text-success small">Model loaded</p>
-                        }
-                        @if (!string.IsNullOrEmpty(gpu.Message))
-                        {
-                            <p class="card-text small text-muted">@gpu.Message</p>
-                        }
-                    </div>
-                </div>
-            </div>
-        }
-    </div>
+<MudGrid Spacing="4" Class="mt-2">
+    <MudItem xs="12" md="6">
+        <LatencyChart Metrics="@_metrics" />
+    </MudItem>
+    <MudItem xs="12" md="6">
+        <CaseDistributionChart Metrics="@_metrics" />
+    </MudItem>
+</MudGrid>
 
-    <div class="row mb-4">
-        <div class="col-md-6">
-            <div class="card">
-                <div class="card-header">Components</div>
-                <ul class="list-group list-group-flush">
-                    @foreach (var (name, comp) in _health.Components)
-                    {
-                        <li class="list-group-item d-flex justify-content-between align-items-center">
-                            @name
-                            <span>
-                                <span class="badge @(comp.Status == "healthy" ? "bg-success" : comp.Status == "degraded" ? "bg-warning" : "bg-danger") me-2">@comp.Status</span>
-                                <small class="text-muted">@comp.Message</small>
-                            </span>
-                        </li>
-                    }
-                </ul>
-            </div>
-        </div>
-
-        <div class="col-md-6">
-            <div class="card">
-                <div class="card-header">Metrics</div>
-                <div class="card-body">
-                    @if (_metrics is null)
-                    {
-                        <p class="text-muted">No metrics available.</p>
-                    }
-                    else
-                    {
-                        <div class="row text-center">
-                            <div class="col-4 mb-3">
-                                <h3>@_metrics.TotalRequests</h3>
-                                <small class="text-muted">Total</small>
-                            </div>
-                            <div class="col-4 mb-3">
-                                <h3>@_metrics.NpuHandled</h3>
-                                <small class="text-muted text-success">NPU</small>
-                            </div>
-                            <div class="col-4 mb-3">
-                                <h3>@_metrics.GpuEscalated</h3>
-                                <small class="text-muted text-warning">GPU</small>
-                            </div>
-                        </div>
-
-                        @if (_metrics.ByTaskType.Count > 0)
-                        {
-                            <h6>By Task Type</h6>
-                            <table class="table table-sm small">
-                                <tbody>
-                                    @foreach (var (task, count) in _metrics.ByTaskType)
-                                    {
-                                        <tr>
-                                            <td>@task</td>
-                                            <td class="text-end">@count</td>
-                                        </tr>
-                                    }
-                                </tbody>
-                            </table>
-                        }
-                    }
-                </div>
-            </div>
-        </div>
-    </div>
-
-    <div class="row mb-4">
-        <div class="col">
-            <div class="card">
-                <div class="card-header">Administration</div>
-                <div class="card-body">
-                    <button class="btn btn-warning me-2" @onclick="RestartBackend" disabled="@_isBusy">
-                        Restart NPU Backend
-                    </button>
-                    <button class="btn btn-secondary" @onclick="ReloadConfig" disabled="@_isBusy">
-                        Reload Configuration
-                    </button>
-                </div>
-            </div>
-        </div>
-    </div>
-}
+<MudGrid Spacing="4" Class="mt-2">
+    <MudItem xs="12">
+        <TaskTypeTable Metrics="@_metrics" />
+    </MudItem>
+</MudGrid>
 
 @code {
     private HealthStatus? _health;
     private MetricsSnapshot? _metrics;
+    private ComponentHealth? _npu;
+    private ComponentHealth? _gpu;
     private PeriodicTimer? _timer;
     private CancellationTokenSource? _cts;
-    private bool _isBusy;
 
     protected override async Task OnInitializedAsync()
     {
@@ -194,6 +61,8 @@ else
     {
         _health = await Api.GetHealthAsync();
         _metrics = await Api.GetMetricsAsync();
+        _npu = _health?.Components?.GetValueOrDefault("npu");
+        _gpu = _health?.Components?.GetValueOrDefault("gpu");
     }
 
     private async Task PollAsync(CancellationToken ct)
@@ -203,20 +72,6 @@ else
             await Refresh();
             StateHasChanged();
         }
-    }
-
-    private async Task RestartBackend()
-    {
-        _isBusy = true;
-        await Api.RestartBackendAsync();
-        _isBusy = false;
-    }
-
-    private async Task ReloadConfig()
-    {
-        _isBusy = true;
-        await Api.ReloadConfigAsync();
-        _isBusy = false;
     }
 
     public void Dispose()

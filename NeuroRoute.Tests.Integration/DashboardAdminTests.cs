@@ -27,7 +27,7 @@ public sealed class DashboardAdminTests : IAsyncLifetime
     }
 
     [Fact]
-    public async Task RestartNpuButton_ReturnsSuccess()
+    public async Task RestartNpuButton_OpensConfirmationDialog()
     {
         await _fixture.ResetScenarioAsync();
         await _fixture.NavigateToDashboardAsync(_page);
@@ -35,12 +35,16 @@ public sealed class DashboardAdminTests : IAsyncLifetime
         var restartButton = _page.GetByRole(AriaRole.Button, new() { Name = "Restart NPU Backend" });
         await Assertions.Expect(restartButton).ToBeEnabledAsync();
         await restartButton.ClickAsync();
-        await Task.Delay(2000);
+
+        var confirmButton = _page.GetByRole(AriaRole.Button, new() { Name = "Confirm" });
+        await Assertions.Expect(confirmButton).ToBeVisibleAsync();
+        await confirmButton.ClickAsync();
+        await Task.Delay(1000);
         await Assertions.Expect(restartButton).ToBeEnabledAsync();
     }
 
     [Fact]
-    public async Task ReloadConfigButton_ReturnsSuccess()
+    public async Task ReloadConfigButton_OpensConfirmationDialog()
     {
         await _fixture.ResetScenarioAsync();
         await _fixture.NavigateToDashboardAsync(_page);
@@ -48,7 +52,11 @@ public sealed class DashboardAdminTests : IAsyncLifetime
         var reloadButton = _page.GetByRole(AriaRole.Button, new() { Name = "Reload Configuration" });
         await Assertions.Expect(reloadButton).ToBeEnabledAsync();
         await reloadButton.ClickAsync();
-        await Task.Delay(2000);
+
+        var confirmButton = _page.GetByRole(AriaRole.Button, new() { Name = "Confirm" });
+        await Assertions.Expect(confirmButton).ToBeVisibleAsync();
+        await confirmButton.ClickAsync();
+        await Task.Delay(1000);
         await Assertions.Expect(reloadButton).ToBeEnabledAsync();
     }
 }

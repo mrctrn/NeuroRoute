@@ -41,7 +41,7 @@ public sealed class DashboardMetricsTests : IAsyncLifetime
         await _fixture.NavigateToDashboardAsync(_page);
         await Task.Delay(2000);
         var pageText = await _page.TextContentAsync("body");
-        Assert.Contains("Total", pageText);
+        Assert.Contains("NPU:", pageText);
     }
 
     [Fact]
@@ -59,7 +59,7 @@ public sealed class DashboardMetricsTests : IAsyncLifetime
         await _fixture.NavigateToDashboardAsync(_page);
         await Task.Delay(2000);
         var pageText = await _page.TextContentAsync("body");
-        Assert.Contains("NPU", pageText);
+        Assert.Contains("NPU:", pageText);
     }
 
     [Fact]
@@ -77,6 +77,6 @@ public sealed class DashboardMetricsTests : IAsyncLifetime
         await _fixture.NavigateToDashboardAsync(_page);
         await Task.Delay(2000);
         var pageText = await _page.TextContentAsync("body");
-        Assert.Contains("GPU", pageText);
+        Assert.Contains("GPU:", pageText);
     }
 }

@@ -1,0 +1,58 @@
+<MudCard Class="h-100" Outlined="@(Component is null)">
+    <MudCardHeader>
+        <CardHeaderContent>
+            <MudText Typo="Typo.subtitle1">
+                <PulseIndicator _healthy="@(Component?.Status == "healthy")" />
+                <strong>@Title</strong>
+                <MudText Color="@_chipColor" Typo="Typo.caption" Style="font-weight: 600; text-transform: uppercase;" Class="float-end">@(Component?.Status ?? "unknown")</MudText>
+            </MudText>
+        </CardHeaderContent>
+    </MudCardHeader>
+    <MudCardContent>
+        @if (Component is null)
+        {
+            <MudText Typo="Typo.body2" Class="text-muted">No data available.</MudText>
+        }
+        else
+        {
+            @if (!string.IsNullOrEmpty(Component.Backend))
+            {
+                <MudText Typo="Typo.body2">Backend: <MudText Typo="Typo.body2" Class="d-inline font-monospace">@Component.Backend</MudText></MudText>
+            }
+            @if (!string.IsNullOrEmpty(Component.Model))
+            {
+                <MudText Typo="Typo.body2">Model: <MudText Typo="Typo.body2" Class="d-inline font-monospace">@Component.Model</MudText></MudText>
+            }
+            @if (!string.IsNullOrEmpty(Component.Endpoint))
+            {
+                <MudText Typo="Typo.body2">Endpoint: <MudText Typo="Typo.body2" Class="d-inline font-monospace">@Component.Endpoint</MudText></MudText>
+            }
+            @if (!string.IsNullOrEmpty(Component.Message))
+            {
+                <MudText Typo="Typo.caption" Class="text-muted mt-1 d-block">@Component.Message</MudText>
+            }
+        }
+    </MudCardContent>
+</MudCard>
+
+@code {
+    [Parameter]
+    public string Title { get; set; } = "";
+
+    [Parameter]
+    public ComponentHealth? Component { get; set; }
+
+    private Color _chipColor
+    {
+        get
+        {
+            if (Component is null) return Color.Default;
+            return Component.Status switch
+            {
+                "healthy" => Color.Success,
+                "degraded" => Color.Warning,
+                _ => Color.Error
+            };
+        }
+    }
+}

@@ -1,0 +1,72 @@
+@page "/logs"
+@rendermode InteractiveServer
+@inject NeuroRoute.Dashboard.Services.NeuroRouteApiClient Api
+@implements IDisposable
+
+<PageTitle>NeuroRoute Logs</PageTitle>
+
+<MudText Typo="Typo.h5" Class="mb-4">Service Logs</MudText>
+
+<MudButton Variant="Variant.Filled" Color="Color.Primary" OnClick="@Refresh" Class="mb-4" Disabled="@_loading">
+    @if (_loading) { <MudProgressCircular Indeterminate="true" Size="Size.Small" Class="mr-2" /> }
+    Refresh
+</MudButton>
+
+@if (_loading && _logs is null)
+{
+    <MudText Typo="Typo.body2" Class="text-muted">Loading logs...</MudText>
+}
+else if (_logs is null || _logs.Count == 0)
+{
+    <MudAlert Severity="Severity.Info" Variant="Variant.Outlined">
+        No logs available. Ensure the service is running and has write access to the event log.
+    </MudAlert>
+}
+else
+{
+    <MudTable Items="@_logs" Hover="true" Outlined="true" Striped="true" Dense="true">
+        <HeaderContent>
+            <MudTh><MudText Typo="Typo.caption">Timestamp</MudText></MudTh>
+            <MudTh><MudText Typo="Typo.caption">Level</MudText></MudTh>
+            <MudTh><MudText Typo="Typo.caption">Message</MudText></MudTh>
+        </HeaderContent>
+        <RowTemplate>
+            <MudTd DataLabel="Timestamp">
+                <MudText Typo="Typo.caption" Class="font-monospace">@context.Timestamp.ToString("yyyy-MM-dd HH:mm:ss")</MudText>
+            </MudTd>
+            <MudTd DataLabel="Level">
+                <MudText Typo="Typo.caption" Color="@_levelColor(context.Level)" Style="font-weight: 600;">@context.Level</MudText>
+            </MudTd>
+            <MudTd DataLabel="Message">
+                <MudText Typo="Typo.body2" Class="text-wrap" Style="word-break: break-word;">@context.Message</MudText>
+            </MudTd>
+        </RowTemplate>
+    </MudTable>
+}
+
+@code {
+    private List<AdminLogEntry>? _logs;
+    private bool _loading;
+
+    protected override async Task OnInitializedAsync()
+    {
+        await Refresh();
+    }
+
+    private async Task Refresh()
+    {
+        _loading = true;
+        _logs = await Api.GetLogsAsync();
+        _loading = false;
+    }
+
+    private Color _levelColor(string level) => level.ToUpperInvariant() switch
+    {
+        "ERROR" => Color.Error,
+        "WARNING" or "WARN" => Color.Warning,
+        "INFORMATION" or "INFO" => Color.Info,
+        _ => Color.Default
+    };
+
+    public void Dispose() { }
+}

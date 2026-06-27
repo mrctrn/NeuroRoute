@@ -55,4 +55,26 @@ public sealed class NeuroRouteApiClient
         }
         catch { return false; }
     }
+
+    public async Task<List<AdminLogEntry>?> GetLogsAsync(int count = 50, CancellationToken ct = default)
+    {
+        try
+        {
+            return await _http.GetFromJsonAsync<List<AdminLogEntry>>($"/v1/admin/logs?count={count}", ct);
+        }
+        catch
+        {
+            return null;
+        }
+    }
+
+    public async Task<bool> StopServiceAsync()
+    {
+        try
+        {
+            var response = await _http.PostAsync("/v1/admin/stop", null);
+            return response.IsSuccessStatusCode;
+        }
+        catch { return false; }
+    }
 }

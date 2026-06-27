@@ -1,0 +1,42 @@
+<MudAlert Severity="@_severity" Variant="Variant.Filled" Class="mb-4">
+    <MudText Typo="Typo.body1" Class="d-flex align-items-center">
+        <MudIcon Icon="@_icon" Class="mr-2" />
+        <strong class="mr-2">@(Health?.Status?.ToUpperInvariant() ?? "UNREACHABLE")</strong>
+        <span class="ml-2 text-muted small">
+            v@(Health?.Version ?? "?") &middot; Uptime: @(Health?.Uptime ?? "?")
+        </span>
+    </MudText>
+</MudAlert>
+
+@code {
+    [Parameter]
+    public HealthStatus? Health { get; set; }
+
+    private Severity _severity
+    {
+        get
+        {
+            if (Health is null) return Severity.Error;
+            return Health.Status switch
+            {
+                "healthy" => Severity.Success,
+                "degraded" => Severity.Warning,
+                _ => Severity.Error
+            };
+        }
+    }
+
+    private string _icon
+    {
+        get
+        {
+            if (Health is null) return Icons.Material.Filled.Error;
+            return Health.Status switch
+            {
+                "healthy" => Icons.Material.Filled.CheckCircle,
+                "degraded" => Icons.Material.Filled.Warning,
+                _ => Icons.Material.Filled.Error
+            };
+        }
+    }
+}

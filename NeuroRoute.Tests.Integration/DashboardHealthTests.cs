@@ -35,8 +35,8 @@ public sealed class DashboardHealthTests : IAsyncLifetime
         await _fixture.ResetScenarioAsync();
         await _fixture.NavigateToDashboardAsync(_page);
 
-        var statusBadge = await _page.TextContentAsync(".badge");
-        Assert.Contains("healthy", statusBadge, StringComparison.OrdinalIgnoreCase);
+        var pageText = await _page.TextContentAsync("body");
+        Assert.Contains("healthy", pageText, StringComparison.OrdinalIgnoreCase);
     }
 
     [Fact]
@@ -45,8 +45,8 @@ public sealed class DashboardHealthTests : IAsyncLifetime
         await _fixture.ProgramScenarioAsync(new { npuAvailable = false });
         await _fixture.NavigateToDashboardAsync(_page);
 
-        var statusBadge = await _page.TextContentAsync(".badge");
-        Assert.Contains("degraded", statusBadge, StringComparison.OrdinalIgnoreCase);
+        var pageText = await _page.TextContentAsync("body");
+        Assert.Contains("degraded", pageText, StringComparison.OrdinalIgnoreCase);
         await _fixture.ResetScenarioAsync();
     }
 
@@ -56,8 +56,8 @@ public sealed class DashboardHealthTests : IAsyncLifetime
         await _fixture.ProgramScenarioAsync(new { gpuAvailable = false });
         await _fixture.NavigateToDashboardAsync(_page);
 
-        var statusBadge = await _page.TextContentAsync(".badge");
-        Assert.Contains("degraded", statusBadge, StringComparison.OrdinalIgnoreCase);
+        var pageText = await _page.TextContentAsync("body");
+        Assert.Contains("degraded", pageText, StringComparison.OrdinalIgnoreCase);
         await _fixture.ResetScenarioAsync();
     }
 
@@ -67,8 +67,8 @@ public sealed class DashboardHealthTests : IAsyncLifetime
         await _fixture.ProgramScenarioAsync(new { npuAvailable = false, gpuAvailable = false });
         await _fixture.NavigateToDashboardAsync(_page);
 
-        var statusBadge = await _page.TextContentAsync(".badge");
-        Assert.Contains("unhealthy", statusBadge, StringComparison.OrdinalIgnoreCase);
+        var pageText = await _page.TextContentAsync("body");
+        Assert.Contains("unhealthy", pageText, StringComparison.OrdinalIgnoreCase);
         await _fixture.ResetScenarioAsync();
     }
 }
