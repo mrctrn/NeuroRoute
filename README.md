@@ -79,6 +79,7 @@ Invoke-RestMethod -Uri http://localhost:5000/v1/chat/completions `
 | [CONCEPTS.md](docs/CONCEPTS.md) | Semantic Model Cascade pattern explained |
 | [DEPLOYMENT.md](docs/DEPLOYMENT.md) | Windows Service install, config, troubleshooting |
 | [FLM_INTEGRATION.md](docs/FLM_INTEGRATION.md) | FastFlowLM backend reference (AMD NPU) |
+| [DASHBOARD.md](docs/DASHBOARD.md) | Dashboard UI guide, charts, admin controls |
 | [DAPR_ANALYSIS.md](docs/DAPR_ANALYSIS.md) | Dapr AI integration analysis (pro/contra/flow) |
 | [MOCK_DEVELOPMENT.md](docs/MOCK_DEVELOPMENT.md) | Mock backends & Playwright testing design |
 
