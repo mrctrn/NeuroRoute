@@ -26,6 +26,8 @@ User Request → Token Counter → NPU Classifier → [NPU generates | GPU escal
 - **Blazor Dashboard** — live health + metrics web UI (5s auto-refresh)
 - **System Tray app** — WinForms NotifyIcon with health status + actions
 - **Mock backends** — run without real NPU/GPU for dev and testing
+- **One-command installer** — `install.ps1` handles FLM, config, service registration, shortcuts
+- **Draft release pipeline** — GitHub Actions builds, tests, and publishes tagged releases
 - **Windows Service** — self-contained EXE, installs via `sc.exe`
 - **Model-agnostic** — swap models in `appsettings.json`, no code changes
 
@@ -42,7 +44,7 @@ dotnet publish .\NeuroRoute.Service\NeuroRoute.Service.csproj `
 # Configure
 # Edit publish\appsettings.json (NPU model path, GPU endpoint, etc.)
 
-# Install as service
+# Install as service (or use install.ps1 for the full experience)
 sc.exe create NeuroRoute binPath="C:\full\path\to\publish\NeuroRoute.Service.exe" start=auto
 sc.exe start NeuroRoute
 
@@ -51,6 +53,19 @@ Invoke-RestMethod -Uri http://localhost:5000/v1/chat/completions `
   -Method Post `
   -Body '{"model":"neuro-route","messages":[{"role":"user","content":"Hello"}],"max_tokens":32}' `
   -ContentType "application/json"
+```
+
+### One-Command Installer
+
+```pwsh
+# Downloads, configures, and installs NeuroRoute + FastFlowLM as a Windows Service
+.\install.ps1
+
+# Or build from source, skip FLM
+.\install.ps1 -BuildFromSource -FlmMode Skip
+
+# Uninstall
+.\install.ps1 -Uninstall
 ```
 
 ## Documentation

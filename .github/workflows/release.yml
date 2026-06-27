@@ -1,0 +1,70 @@
+name: Release
+
+on:
+  push:
+    tags: 'v*'
+
+jobs:
+  build:
+    runs-on: windows-latest
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Extract version from tag
+        shell: pwsh
+        run: |
+          $tag = "${{ github.ref_name }}"
+          $version = $tag.TrimStart('v')
+          "VERSION=$version" >> $env:GITHUB_ENV
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '10.0.x'
+
+      - name: Write version to Directory.Build.props
+        shell: pwsh
+        run: |
+          $content = @"
+          <Project>
+            <PropertyGroup>
+              <Version>$env:VERSION</Version>
+              <FileVersion>`$(Version)</FileVersion>
+              <InformationalVersion>`$(Version)</InformationalVersion>
+            </PropertyGroup>
+          </Project>
+          "@
+          Set-Content -Path Directory.Build.props -Value $content -Encoding UTF8
+
+      - name: Build Service
+        run: dotnet publish .\NeuroRoute.Service\NeuroRoute.Service.csproj -c Release -r win-x64 --self-contained -o publish\service --nologo
+
+      - name: Build Tray
+        run: dotnet publish .\NeuroRoute.Tray\NeuroRoute.Tray.csproj -c Release -r win-x64 --self-contained -o publish\tray --nologo
+
+      - name: Run unit tests
+        run: dotnet test .\NeuroRoute.Tests --no-restore --nologo
+
+      - name: Create release archive
+        shell: pwsh
+        run: |
+          New-Item -ItemType Directory -Path publish\combined -Force
+          Copy-Item -Path publish\service\* -Destination publish\combined
+          Copy-Item -Path publish\tray\* -Destination publish\combined
+          Compress-Archive -Path publish\combined\* -DestinationPath "NeuroRoute-v$env:VERSION.zip"
+
+      - name: Create draft release
+        uses: softprops/action-gh-release@v2
+        with:
+          draft: true
+          name: "NeuroRoute v${{ env.VERSION }}"
+          body: |
+            ## NeuroRoute v${{ env.VERSION }}
+
+            See [CHANGELOG.md](CHANGELOG.md) for details.
+          files: |
+            NeuroRoute-v${{ env.VERSION }}.zip
+            install.ps1

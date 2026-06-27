@@ -2,6 +2,22 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.1.0] - 2026-06-27
+
+### Added
+- `Directory.Build.props` — centralized versioning for all 5 projects
+- `install.ps1` — PowerShell installer script (admin, FLM sideload/global/skip, download or build from source, service registration, Start Menu shortcuts, uninstall)
+- `.github/workflows/release.yml` — CI/CD pipeline: build → test → publish → draft release
+
+### Infrastructure
+- Versioning starts at 0.1.0 via `Directory.Build.props` + git tags
+- All assemblies report `0.1.0` through `AssemblyInformationalVersion`
+- Release workflow creates draft GitHub Release with `NeuroRoute-v{version}.zip` + `install.ps1`
+
+### Documentation
+- Installer design spec with flow diagrams (`docs/superpowers/specs/2026-06-27-installer-and-release-pipeline-design.md`)
+- Deployment guide updated with `install.ps1` reference
+
 ## [1.0.0] - 2026-06-25
 
 ### Added

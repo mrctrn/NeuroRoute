@@ -1,6 +1,73 @@
 # NeuroRoute — Windows Deployment Guide
 
-## 1. Prerequisites
+## 1. Quick Install (Recommended)
+
+The `install.ps1` script handles everything: downloading or building NeuroRoute, installing FastFlowLM, registering the Windows Service, and creating Start Menu shortcuts.
+
+### 1.1 Prerequisites
+
+| Component | Requirement | Check |
+|-----------|-------------|-------|
+| OS | Windows 10 22H2+, Windows Server 2022+ (64-bit) | `[Environment]::Is64BitOperatingSystem` |
+| PowerShell | 7.0+ (PowerShell Core) | `$PSVersionTable.PSVersion` |
+| Administrator | Required for service installation | Run as admin or script auto-elevates |
+
+### 1.2 Download and Run
+
+```pwsh
+# Download the installer from the latest release
+Invoke-WebRequest -Uri "https://github.com/mrctrn/NeuroRoute/releases/latest/download/install.ps1" -OutFile "install.ps1"
+
+# Run with defaults (sideload FLM, download release)
+.\install.ps1
+```
+
+### 1.3 Common Scenarios
+
+```pwsh
+# Install from source (for development)
+.\install.ps1 -BuildFromSource -FlmMode Skip
+
+# Install with global FLM (system-wide)
+.\install.ps1 -FlmMode Global
+
+# Service only (no Start Menu shortcuts)
+.\install.ps1 -ServiceOnly
+
+# Uninstall completely
+.\install.ps1 -Uninstall
+
+# Install specific version from draft release
+.\install.ps1 -Version 0.1.0 -DraftToken ghp_xxxxxxxxxxxx
+```
+
+### 1.4 What Happens
+
+| Phase | Action |
+|-------|--------|
+| Elevation | Auto-restarts as admin if needed |
+| FLM | Detects existing FLM → interactive choice; or sideloads/installs fresh |
+| NeuroRoute | Downloads release zip from GitHub (or builds from source) |
+| Config | Generates `appsettings.json` with correct backend, ports, paths |
+| Service | Registers as Windows Service via `sc.exe`, starts automatically |
+| Shortcuts | Adds Start Menu group with Dashboard URL, Tray, Uninstall |
+
+### 1.5 Target Layout
+
+```
+C:\Program Files\NeuroRoute\
+├── NeuroRoute.Service.exe
+├── NeuroRoute.Tray.exe
+├── appsettings.json
+├── install.ps1
+├── flm\                        (if sideloaded)
+│   └── flm.exe
+└── *.dll
+```
+
+---
+
+## 2. Prerequisites (Manual)
 
 | Component | Requirement | Check |
 |-----------|-------------|-------|
@@ -10,7 +77,7 @@
 | GPU Backend | Any OpenAI-compatible server (vLLM, llama.cpp, etc.) | HTTP endpoint required |
 | NPU Model / Tool | **ONNX backend**: `.onnx` file; **FLM backend**: `flm.exe` in PATH | See sections below |
 
-### 1.1 Install .NET Runtime
+### 2.1 Install .NET Runtime
 
 ```pwsh
 # Check if .NET 10 is installed
@@ -20,11 +87,11 @@ dotnet --list-runtimes | Select-String "10.0"
 # Install the .NET Runtime 10.0.x (not just the SDK) on the target machine
 ```
 
-### 1.2 Install Visual C++ Redistributable
+### 2.2 Install Visual C++ Redistributable
 
 Download and install the latest VC++ 2015-2022 x64 redistributable from Microsoft.
 
-### 1.3 Install FastFlowLM (for FLM backend)
+### 2.3 Install FastFlowLM (for FLM backend)
 
 If using `NpuBackend: "flm"`, download and install FastFlowLM:
 
@@ -48,7 +115,7 @@ If not in PATH, locate it at `C:\Users\<USER>\AppData\Local\Programs\FastFlowLM\
 
 ---
 
-## 2. Build
+## 3. Build (Manual)
 
 Run on a dev machine with the .NET SDK installed:
 
@@ -81,9 +148,9 @@ dotnet publish .\NeuroRoute.Service\NeuroRoute.Service.csproj `
 
 ---
 
-## 3. Configuration
+## 4. Configuration
 
-### 3.1 Main Config File
+### 4.1 Main Config File
 
 Copy `appsettings.json` to the publish directory. All settings are in the `NeuroRoute` section:
 
@@ -99,7 +166,7 @@ Copy `appsettings.json` to the publish directory. All settings are in the `Neuro
 | `GpuMaxRetries` | `3` | both | Retry attempts for GPU requests |
 | `GpuTimeoutSeconds` | `300` | both | GPU request timeout |
 
-### 3.2 Binding / Port
+### 4.2 Binding / Port
 
 The Kestrel section controls the HTTP endpoint:
 
@@ -117,7 +184,7 @@ The Kestrel section controls the HTTP endpoint:
 
 Change the port or bind to a network interface as needed. For production, consider HTTPS via reverse proxy (IIS, nginx).
 
-### 3.3 Backend-specific config
+### 4.3 Backend-specific config
 
 #### ONNX backend (`NpuBackend: "onnx"`)
 
@@ -132,9 +199,9 @@ C:\NeuroRoute\Models\
 
 NeuroRoute will auto-start `flm serve <NpuFlmModelTag>` as a child process on startup.
 The model tag uses the FastFlowLM format — available tags with `flm list`.
-FastFlowLM must be installed on the machine (see [1.3 Install FastFlowLM](#13-install-fastflowlm-for-flm-backend)).
+FastFlowLM must be installed on the machine (see [2.3 Install FastFlowLM](#23-install-fastflowlm-for-flm-backend)).
 
-### 3.4 Logging Levels
+### 4.4 Logging Levels
 
 ```json
 {
@@ -152,9 +219,9 @@ Set `NeuroRoute` to `Debug` for detailed routing decisions.
 
 ---
 
-## 4. Install as Windows Service
+## 5. Install as Windows Service
 
-### 4.1 Using `sc.exe` (built-in)
+### 5.1 Using `sc.exe` (built-in)
 
 ```pwsh
 # Create the service
@@ -170,7 +237,7 @@ sc.exe description NeuroRoute "Hybrid NPU-to-GPU routing gateway for local LLM e
 sc.exe start NeuroRoute
 ```
 
-### 4.2 Using `New-Service` (PowerShell)
+### 5.2 Using `New-Service` (PowerShell)
 
 ```pwsh
 New-Service -Name NeuroRoute `
@@ -182,7 +249,7 @@ New-Service -Name NeuroRoute `
 Start-Service -Name NeuroRoute
 ```
 
-### 4.3 FLM process management
+### 5.3 FLM process management
 
 When using `NpuBackend: "flm"`, NeuroRoute automatically:
 
@@ -194,11 +261,11 @@ When using `NpuBackend: "flm"`, NeuroRoute automatically:
 
 If `flm.exe` is not found, NeuroRoute logs a critical error and runs in degraded mode (all requests routed to GPU).
 
-### 4.4 Working Directory
+### 5.4 Working Directory
 
 The `--content-root` argument sets `IHostEnvironment.ContentRootPath` so that relative paths in `appsettings.json` (like `Models/gemma-4-int4.onnx`) resolve correctly. Alternatively, use absolute paths in config.
 
-### 4.5 Verify Installation
+### 5.5 Verify Installation
 
 ```pwsh
 # Check service status
@@ -213,7 +280,7 @@ Invoke-RestMethod -Uri http://localhost:5000/v1/chat/completions `
 
 ---
 
-## 5. Service Management
+## 6. Service Management
 
 ### Start / Stop / Restart
 
@@ -244,9 +311,9 @@ Get-Service NeuroRoute | Select-Object Name, Status, StartType
 
 ---
 
-## 6. Logs & Monitoring
+## 7. Logs & Monitoring
 
-### 6.1 Application Logs
+### 7.1 Application Logs
 
 Logs go to the Windows Event Log under **Applications and Services Logs > NeuroRoute**. View with:
 
@@ -255,7 +322,7 @@ Get-WinEvent -LogName "NeuroRoute" -MaxEvents 100 | `
   Format-Table TimeCreated, LevelDisplayName, Message -Wrap
 ```
 
-### 6.2 Console Logging (for debugging)
+### 7.2 Console Logging (for debugging)
 
 Stop the service and run the executable directly in a terminal:
 
@@ -265,7 +332,7 @@ Stop the service and run the executable directly in a terminal:
 
 All log output appears in the console with real-time timestamps.
 
-### 6.3 File Logging (optional)
+### 7.3 File Logging (optional)
 
 To add rolling file logging, add the `Serilog` packages and configure in `appsettings.json`:
 
@@ -278,7 +345,7 @@ dotnet add .\NeuroRoute.Service\NeuroRoute.Service.csproj package Serilog.Sinks.
 
 ---
 
-## 7. GPU Backend Setup
+## 8. GPU Backend Setup
 
 The GPU backend runs as a **separate process/service** on the same machine or a different host. NeuroRoute is compatible with any server exposing an OpenAI-compatible `/v1/chat/completions` endpoint.
 
@@ -329,7 +396,7 @@ Configure the URL in `appsettings.json`:
 
 ---
 
-## 7.5 Dev Mode — No Hardware Required
+## 9. Dev Mode — No Hardware Required
 
 When developing the Dashboard, Tray app, or testing the API, use mock backends to run the service without any real NPU/GPU hardware.
 
@@ -403,7 +470,7 @@ Start-Process "http://localhost:5001"
 
 ---
 
-## 8. System Tray Application
+## 10. System Tray Application
 
 ### What It Does
 
@@ -457,7 +524,7 @@ Remove-ItemProperty -Path "HKCU:\Software\Microsoft\Windows\CurrentVersion\Run" 
 
 ---
 
-## 9. Directory Layout (Production)
+## 11. Directory Layout (Production)
 
 ```
 C:\NeuroRoute\
@@ -476,7 +543,7 @@ C:\NeuroRoute\
 
 ---
 
-## 10. Uninstall
+## 12. Uninstall
 
 ```pwsh
 # Stop the service
@@ -494,7 +561,7 @@ Remove-Item -Path C:\NeuroRoute -Recurse -Force
 
 ---
 
-## 11. Troubleshooting
+## 13. Troubleshooting
 
 | Symptom | Likely Cause | Fix |
 |---------|-------------|-----|
@@ -517,7 +584,7 @@ Get-WinEvent -FilterHashtable @{LogName='System'; ProviderName='Service Control 
 
 ---
 
-## 12. Security Notes
+## 14. Security Notes
 
 - By default, the service binds to `http://localhost:5000` (loopback only)
 - For remote access, put a reverse proxy (IIS ARR, nginx) with HTTPS in front
