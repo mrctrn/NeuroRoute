@@ -9,8 +9,8 @@ namespace NeuroRoute.Service.Services;
 
 public sealed class HealthService
 {
-    private readonly OnnxSessionFactory _onnxSessionFactory;
-    private readonly GpuClient _gpuClient;
+    private readonly OnnxSessionFactory? _onnxSessionFactory;
+    private readonly IGpuClient _gpuClient;
     private readonly MockScenario? _mockScenario;
     private readonly FlmProcessManager? _flmProcessManager;
     private readonly IOptions<NeuroRouteOptions> _options;
@@ -21,15 +21,15 @@ public sealed class HealthService
     private static readonly TimeSpan CacheDuration = TimeSpan.FromSeconds(30);
 
     public HealthService(
-        OnnxSessionFactory onnxSessionFactory,
-        GpuClient gpuClient,
+        IGpuClient gpuClient,
         IOptions<NeuroRouteOptions> options,
         ILogger<HealthService> logger,
+        OnnxSessionFactory? onnxSessionFactory = null,
         FlmProcessManager? flmProcessManager = null,
         MockScenario? mockScenario = null)
     {
-        _onnxSessionFactory = onnxSessionFactory;
         _gpuClient = gpuClient;
+        _onnxSessionFactory = onnxSessionFactory;
         _flmProcessManager = flmProcessManager;
         _options = options;
         _logger = logger;
@@ -109,7 +109,7 @@ public sealed class HealthService
             var modelName = _options.Value.NpuModelPath;
             try
             {
-                _onnxSessionFactory.GetOrCreateSession();
+                _onnxSessionFactory!.GetOrCreateSession();
                 return new ComponentHealth
                 {
                     Status = "healthy",
