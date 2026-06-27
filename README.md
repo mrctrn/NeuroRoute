@@ -21,6 +21,11 @@ User Request → Token Counter → NPU Classifier → [NPU generates | GPU escal
 - **4-case routing** — handles short/long prompts, compression, and notes
 - **Configurable context window** — NpuLimit up to 128k tokens
 - **Health monitoring** — component-level `/v1/health` endpoint
+- **Metrics endpoint** — routing ratios, task type distribution, latency
+- **Admin endpoints** — stop, restart backend, reload config, view logs
+- **Blazor Dashboard** — live health + metrics web UI (5s auto-refresh)
+- **System Tray app** — WinForms NotifyIcon with health status + actions
+- **Mock backends** — run without real NPU/GPU for dev and testing
 - **Windows Service** — self-contained EXE, installs via `sc.exe`
 - **Model-agnostic** — swap models in `appsettings.json`, no code changes
 
@@ -60,6 +65,7 @@ Invoke-RestMethod -Uri http://localhost:5000/v1/chat/completions `
 | [DEPLOYMENT.md](docs/DEPLOYMENT.md) | Windows Service install, config, troubleshooting |
 | [FLM_INTEGRATION.md](docs/FLM_INTEGRATION.md) | FastFlowLM backend reference (AMD NPU) |
 | [DAPR_ANALYSIS.md](docs/DAPR_ANALYSIS.md) | Dapr AI integration analysis (pro/contra/flow) |
+| [MOCK_DEVELOPMENT.md](docs/MOCK_DEVELOPMENT.md) | Mock backends & Playwright testing design |
 
 ## License
 

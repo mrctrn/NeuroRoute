@@ -26,8 +26,13 @@ NeuroRoute bridges this gap: use the NPU for lightweight, bounded tasks and the 
 | GPU auto-retry with exponential backoff | ✅ Done |
 | ONNX GenAI backend | ✅ Done |
 | FLM (FastFlowLM) backend | ✅ Done |
-| Structured logging & tracing | 🔜 Planned |
-| Metrics endpoint | 🔜 Planned |
+| Structured logging & tracing | ✅ Done |
+| Metrics endpoint | ✅ Done |
+| Admin endpoints (stop, restart, reload, logs) | ✅ Done |
+| Blazor Dashboard (live health + metrics) | ✅ Done |
+| System Tray application (WinForms) | ✅ Done |
+| Mock backends for dev/test (no hardware required) | ✅ Done |
+| Playwright integration tests (Dashboard E2E) | ✅ Done |
 
 ## Model Support
 

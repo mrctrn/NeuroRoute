@@ -172,7 +172,8 @@ The context window limit (`NpuLimit`, default 65536) and slice size (`NpuSlice`,
     "NpuLimit": 65536,
     "NpuSlice": 2048,
     "GpuMaxRetries": 3,
-    "GpuTimeoutSeconds": 300
+    "GpuTimeoutSeconds": 300,
+    "UseMockBackends": false
   }
 }
 ```
@@ -188,15 +189,27 @@ The context window limit (`NpuLimit`, default 65536) and slice size (`NpuSlice`,
 | `NpuSlice` | 2048 | both | Tokens from end when prompt exceeds NpuLimit |
 | `GpuMaxRetries` | 3 | both | Retry attempts for GPU requests |
 | `GpuTimeoutSeconds` | 300 | both | GPU request timeout |
+| `UseMockBackends` | false | both | When true, replaces real NPU/GPU backends with programmable mocks for dev/test |
+
+## 9. Admin Mock Endpoints
+
+When `UseMockBackends` is `true`, the following endpoints are available for controlling mock behavior:
+
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| GET | `/v1/admin/mock/scenario` | Returns the current mock scenario state |
+| POST | `/v1/admin/mock/scenario` | Partially updates the mock scenario (JSON body) |
+| POST | `/v1/admin/mock/scenario/reset` | Resets mock scenario to factory defaults |
 
 All values are configurable — no hardcoded model names.
 
-## 9. Deployment
+## 10. Deployment
 
 - Build: `dotnet publish -r win-x64 --self-contained`
 - Install as Windows Service: `sc create NeuroRoute binPath=...\NeuroRoute.Service.exe`
 - GPU server (any OpenAI-compatible backend — LM Studio, Lemonade Server, Unsloth Studio, llama.cpp, vLLM, etc.) runs as a separate process
 - FLM server (when `NpuBackend == "flm"`) is managed as a child process by NeuroRoute — auto-starts, monitors, restarts (max 3)
 - Service auto-retries GPU connection with exponential backoff (3 attempts)
+- Dev mode: set `UseMockBackends: true` to run without real hardware for dashboard demos and testing
 
 See [DEPLOYMENT.md](./DEPLOYMENT.md) for full deployment instructions.

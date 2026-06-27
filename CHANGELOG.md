@@ -30,10 +30,25 @@ All notable changes to this project will be documented in this file.
 - FastFlowLM integration plan (`FLM_INTEGRATION.md`)
 - API reference (`API.md`)
 
-## [Planned] - 1.1.0
+## [1.1.0] - 2026-06-26
 
-### Planned
-- FLM backend (FastFlowLM AMD NPU support)
-- Structured logging and tracing (`System.Diagnostics.Activity`)
-- Metrics endpoint with token counts, routing ratios, latency percentiles
-- Integration/E2E test project
+### Added
+- Mock backend system (`UseMockBackends` config flag)
+- `MockNpuBackend : INpuBackend` — programmable fake NPU
+- `MockGpuClient : IGpuClient` — programmable fake GPU
+- `MockScenario` singleton — full state control via admin endpoints
+- `IGpuClient` interface extraction for mockability
+- Admin mock scenario endpoints (`GET/POST /v1/admin/mock/scenario`)
+- `appsettings.Development.json` with dev mode defaults
+
+### Testing
+- `NeuroRoute.Tests.Integration` — Playwright E2E project
+- Dashboard health card state tests (green/yellow/red)
+- Dashboard admin button tests (restart, reload)
+- Dashboard metrics display tests
+- `PlaywrightFixture` — manages Service + Dashboard processes for E2E
+
+### Documentation
+- Mock backend design doc (`docs/superpowers/specs/2026-06-26-mock-backend-integration-testing-design.md`)
+- Dev mode guide in deployment docs
+- Admin mock endpoint reference in API docs

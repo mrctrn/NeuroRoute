@@ -3,31 +3,31 @@
 ## Overview
 
 ```
-┌──────────────────────────────────────────────┐
-│              NeuroRoute.Service               │
-│       (.NET 10 Windows Routing Gateway)       │
-└───────────────────────┬──────────────────────┘
+┌──────────────────────────────────────────────────────┐
+│              NeuroRoute.Service                       │
+│       (.NET 10 Windows Routing Gateway)               │
+└───────────────────────┬──────────────────────────────┘
                         │
           ┌─────────────┼─────────────┐
           ▼             ▼             ▼
   ┌──────────────┐ ┌──────────┐ ┌──────────────┐
-  │ ChatController│ │ Health   │ │   Worker     │
-  │ /v1/chat/     │ │Controller│ │ (Background  │
-  │ completions   │ │ /v1/health│ │  Service)    │
-  │ SSE streaming │ └──────────┘ └──────┬───────┘
-  └───────┬───────┘                     │
-          │                     ┌───────▼───────┐
-          ▼                     │FlmProcessMgr  │
-    ┌──────────────┐            │(if NpuBackend │
-    │    Router     │            │ = \"flm\")     │
-    │  orchestration│            └───────────────┘
+  │ ChatController│ │ Health   │ │AdminController│
+  │ /v1/chat/     │ │Controller│ │ /v1/admin/*   │
+  │ completions   │ │ /v1/health│ │ stop/restart   │
+  │ SSE streaming │ └──────────┘ │ reload/logs   │
+  └───────┬───────┘              │ mock/scenario  │
+          │                      └───────────────┘
+          ▼
+    ┌──────────────┐
+    │    Router     │
+    │  orchestration│
     └──────┬───────┘
            │
  ┌─────────┼──────────┐
  ▼         ▼          ▼
-[ITokenizer] [NpuPlanner] [GpuClient]
- (counting)   (4 routing    (HTTP to
-              cases)      external server)
+[ITokenizer] [NpuPlanner] [IGpuClient]
+ (counting)   (4 routing    ├── GpuClient (HTTP real)
+               cases)       └── MockGpuClient (fake)
                 │
                 ▼
           ┌──────────────┐
@@ -35,18 +35,12 @@
           │ → INpuBackend  │
           └──────┬───────┘
                  │
-         ┌───────┴────────┐
-         ▼                ▼
-  ┌──────────────┐ ┌──────────────┐
-  │ OnnxBackend   │ │  FlmBackend   │
-  │ (ONNX GenAI)  │ │ (HTTP to FLM  │
-  │               │ │  :52625)      │
-  └──────┬───────┘ └──────┬───────┘
-         │                │
-  ┌──────▼──────┐  ┌──────▼──────┐
-  │OnnxSession  │  │  FlmClient   │
-  │ Factory     │  │ (HTTP reqs)  │
-  └─────────────┘  └─────────────┘
+         ┌───────┼────────┐
+         ▼       ▼        ▼
+  ┌──────────┐ ┌──────┐ ┌──────────────────┐
+  │ OnnxBack │ │ Flm  │ │ MockNpuBackend    │
+  │ (ONNX)   │ │(HTTP)│ │ (programmable)    │
+  └──────────┘ └──────┘ └──────────────────┘
 ```
 
 Backend selection is driven by `NeuroRoute:NpuBackend` in `appsettings.json` (`"onnx"` or `"flm"`).
@@ -87,13 +81,17 @@ Case D: NPU returns notes_for_gpu
 | ApproximateTokenizer | `Routing/Tokenizer.cs` | Dev-only fast token counter |
 | PromptBuilder | `Routing/PromptBuilder.cs` | Chat template formatting |
 | NpuModel | `Npu/NpuModel.cs` | NPU inference dispatcher — delegates to INpuBackend |
-| INpuBackend | `Npu/INpuBackend.cs` | Abstraction over ONNX and FLM inference |
+| INpuBackend | `Npu/INpuBackend.cs` | Abstraction over ONNX, FLM, and Mock inference |
 | OnnxBackend | `Npu/OnnxBackend.cs` | Direct ONNX GenAI inference |
 | OnnxSessionFactory | `Npu/OnnxSessionFactory.cs` | Thread-safe ONNX session lifecycle |
 | FlmBackend | `Npu/FlmBackend.cs` | HTTP client to FastFlowLM server on port 52625 |
 | FlmClient | `Npu/FlmClient.cs` | OpenAI-compatible HTTP client for FLM server |
 | FlmProcessManager | `Npu/FlmProcessManager.cs` | FLM child process lifecycle (start, health, restart) |
-| GpuClient | `Gpu/GpuClient.cs` | HTTP client to external GPU server with auto-retry |
+| IGpuClient | `Gpu/IGpuClient.cs` | Abstraction over GPU HTTP client and mock |
+| GpuClient | `Gpu/GpuClient.cs` | Implements IGpuClient; HTTP client to external GPU server with auto-retry |
+| MockNpuBackend | `Testing/MockNpuBackend.cs` | Programmable fake NPU for dev/test (no hardware) |
+| MockGpuClient | `Testing/MockGpuClient.cs` | Programmable fake GPU for dev/test (no hardware) |
+| MockScenario | `Testing/MockScenario.cs` | Singleton state controlling mock behavior |
 | Worker | `Worker.cs` | Service lifecycle, FLM process startup |
 
 ## Data Flow (Non-Streaming)

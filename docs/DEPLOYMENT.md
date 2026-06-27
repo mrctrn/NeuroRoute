@@ -329,7 +329,81 @@ Configure the URL in `appsettings.json`:
 
 ---
 
-## 7.5 System Tray Application
+## 7.5 Dev Mode — No Hardware Required
+
+When developing the Dashboard, Tray app, or testing the API, use mock backends to run the service without any real NPU/GPU hardware.
+
+### Configuration
+
+Set `UseMockBackends: true` in `appsettings.Development.json`:
+
+```json
+{
+  "NeuroRoute": {
+    "UseMockBackends": true
+  }
+}
+```
+
+Or pass as an environment variable:
+
+```pwsh
+$env:NeuroRoute__UseMockBackends = "true"
+dotnet run --project NeuroRoute.Service
+```
+
+### What Happens
+
+- `MockNpuBackend` replaces `OnnxBackend`/`FlmBackend` — returns canned responses with programmable latency
+- `MockGpuClient` replaces `GpuClient` — returns canned responses without HTTP calls
+- `MockScenario` singleton holds all programmable state
+- Admin mock endpoints are registered at `/v1/admin/mock/scenario`
+- Health endpoint reflects mock availability state
+
+### Programming the Fakes
+
+Use the admin mock endpoints to control behavior per test scenario:
+
+```pwsh
+# GPU escalation
+Invoke-RestMethod http://localhost:5000/v1/admin/mock/scenario -Method Post `
+  -Body '{"needsGpu":true,"gpuAvailable":true,"gpuResponseText":"Complex reasoning!"}' `
+  -ContentType "application/json"
+
+# NPU down
+Invoke-RestMethod http://localhost:5000/v1/admin/mock/scenario -Method Post `
+  -Body '{"npuAvailable":false}' `
+  -ContentType "application/json"
+
+# Both down
+Invoke-RestMethod http://localhost:5000/v1/admin/mock/scenario -Method Post `
+  -Body '{"npuAvailable":false,"gpuAvailable":false}' `
+  -ContentType "application/json"
+
+# Reset
+Invoke-RestMethod http://localhost:5000/v1/admin/mock/scenario/reset -Method Post
+```
+
+### Testing the Dashboard
+
+```pwsh
+# Terminal 1: Service with mocks
+$env:NeuroRoute__UseMockBackends = "true"
+dotnet run --project NeuroRoute.Service
+
+# Terminal 2: Dashboard
+dotnet run --project NeuroRoute.Dashboard
+
+# Terminal 3: Program mocks & verify
+Invoke-RestMethod http://localhost:5000/v1/admin/mock/scenario -Method Post `
+  -Body '{"needsGpu":false,"npuAvailable":true}' `
+  -ContentType "application/json"
+Start-Process "http://localhost:5001"
+```
+
+---
+
+## 8. System Tray Application
 
 ### What It Does
 
@@ -383,7 +457,7 @@ Remove-ItemProperty -Path "HKCU:\Software\Microsoft\Windows\CurrentVersion\Run" 
 
 ---
 
-## 8. Directory Layout (Production)
+## 9. Directory Layout (Production)
 
 ```
 C:\NeuroRoute\
@@ -402,7 +476,7 @@ C:\NeuroRoute\
 
 ---
 
-## 9. Uninstall
+## 10. Uninstall
 
 ```pwsh
 # Stop the service
@@ -420,7 +494,7 @@ Remove-Item -Path C:\NeuroRoute -Recurse -Force
 
 ---
 
-## 10. Troubleshooting
+## 11. Troubleshooting
 
 | Symptom | Likely Cause | Fix |
 |---------|-------------|-----|
@@ -443,7 +517,7 @@ Get-WinEvent -FilterHashtable @{LogName='System'; ProviderName='Service Control 
 
 ---
 
-## 11. Security Notes
+## 12. Security Notes
 
 - By default, the service binds to `http://localhost:5000` (loopback only)
 - For remote access, put a reverse proxy (IIS ARR, nginx) with HTTPS in front

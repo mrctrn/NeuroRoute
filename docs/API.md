@@ -243,6 +243,88 @@ Metrics reset on service restart.
 
 ---
 
+---
+
+## Admin — Mock Scenario Control
+
+Available only when `UseMockBackends: true` (dev/test mode). These endpoints let you program the fake NPU and GPU backends without real hardware.
+
+### `GET /v1/admin/mock/scenario`
+
+Returns the current mock scenario state — all programmable parameters.
+
+#### Response (200)
+
+```json
+{
+  "npuAvailable": true,
+  "npuBackend": "mock",
+  "npuModel": "mock-npu-model-v1",
+  "taskType": "simple_chat",
+  "needsGpu": false,
+  "routingCase": "C",
+  "npuResponseText": "Hello from mock NPU!",
+  "gpuResponseText": "Complex reasoning from mock GPU!",
+  "gpuAvailable": true,
+  "gpuModel": "mock-gpu-model-v1",
+  "gpuEndpoint": "http://mock-gpu:8080",
+  "simulatedLatencyMs": 50,
+  "streamDelayMs": 10
+}
+```
+
+### `POST /v1/admin/mock/scenario`
+
+Partially updates the mock scenario. Only supplied fields are changed.
+
+#### Request Body
+
+```json
+{
+  "needsGpu": true,
+  "gpuAvailable": true,
+  "taskType": "deep_reasoning"
+}
+```
+
+#### Response (200)
+
+```json
+{
+  "message": "Mock scenario updated"
+}
+```
+
+### `POST /v1/admin/mock/scenario/reset`
+
+Resets all mock scenario values to factory defaults.
+
+#### Response (200)
+
+```json
+{
+  "message": "Mock scenario reset to defaults"
+}
+```
+
+### Client Examples (PowerShell)
+
+```pwsh
+# Set NPU to always classify as complex (GPU escalation)
+Invoke-RestMethod -Uri http://localhost:5000/v1/admin/mock/scenario `
+  -Method Post `
+  -Body '{"needsGpu":true,"gpuAvailable":true}' `
+  -ContentType "application/json"
+
+# Verify from Dashboard
+Start-Process "http://localhost:5001"
+
+# Reset to defaults
+Invoke-RestMethod -Uri http://localhost:5000/v1/admin/mock/scenario/reset -Method Post
+```
+
+---
+
 ## Errors
 
 All errors return JSON with consistent structure:
