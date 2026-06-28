@@ -73,6 +73,23 @@ else
     });
     builder.Services.AddSingleton<FlmBackend>();
 
+    // FLM CLI service for one-off commands (list, pull, remove)
+#pragma warning disable CS8634, CS8621
+    builder.Services.AddSingleton<FlmCliService?>(sp =>
+    {
+        var sideloadDir = Path.Combine(AppContext.BaseDirectory, "flm");
+        var flmPath = FindFlmExecutable(sideloadDir);
+        if (flmPath is null)
+        {
+            var log = sp.GetRequiredService<ILogger<FlmCliService>>();
+            log.LogWarning("flm.exe not found, FlmCliService disabled");
+            return null;
+        }
+        var flmLogger = sp.GetRequiredService<ILogger<FlmCliService>>();
+        return new FlmCliService(flmPath, flmLogger);
+    });
+#pragma warning restore CS8634, CS8621
+
     // Select NPU backend based on configuration
     builder.Services.AddSingleton<INpuBackend>(sp =>
     {
@@ -134,6 +151,22 @@ if (useMockBackends)
         s.ResetToDefaults();
         return Results.Ok(new { message = "Mock scenario reset to defaults" });
     });
+}
+
+static string? FindFlmExecutable(string? sideloadDir = null)
+{
+    if (sideloadDir is not null)
+    {
+        var sideload = Path.Combine(sideloadDir, "flm.exe");
+        if (File.Exists(sideload)) return sideload;
+    }
+    var paths = Environment.GetEnvironmentVariable("PATH")?.Split(Path.PathSeparator) ?? [];
+    foreach (var path in paths)
+    {
+        var full = Path.Combine(path.Trim(), "flm.exe");
+        if (File.Exists(full)) return full;
+    }
+    return null;
 }
 
 app.Run();
