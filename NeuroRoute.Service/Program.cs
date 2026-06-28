@@ -47,9 +47,10 @@ else
     builder.Services.AddSingleton<OnnxBackend>();
 
     // FLM backend
-    var flmHost = neuroRouteSection["NpuFlmHost"] ?? "127.0.0.1";
+    var flmHost = neuroRouteSection["NpuFlmHost"] ?? "0.0.0.0";
     var flmPort = neuroRouteSection.GetValue<int?>("NpuFlmPort") ?? 52625;
-    var flmEndpoint = neuroRouteSection["NpuFlmEndpoint"] ?? $"http://{flmHost}:{flmPort}";
+    // Client always connects via loopback regardless of FLM's --host binding
+    var flmEndpoint = neuroRouteSection["NpuFlmEndpoint"] ?? $"http://127.0.0.1:{flmPort}";
     builder.Services.AddHttpClient<FlmClient>(client =>
     {
         client.BaseAddress = new Uri(flmEndpoint);

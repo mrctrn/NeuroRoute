@@ -8,7 +8,7 @@ public sealed class NeuroRouteOptions
     public string NpuModelPath { get; set; } = "Models/gemma-4-int4.onnx";
     public string NpuFlmModelTag { get; set; } = "gemma4-it:e4b";
     public string NpuFlmEndpoint { get; set; } = "http://127.0.0.1:52625";
-    public string NpuFlmHost { get; set; } = "127.0.0.1";
+    public string NpuFlmHost { get; set; } = "0.0.0.0";
     public int NpuFlmPort { get; set; } = 52625;
     public int NpuFlmCtxLen { get; set; }
     public string NpuFlmPmode { get; set; } = "performance";

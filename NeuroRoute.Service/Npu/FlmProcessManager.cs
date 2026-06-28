@@ -59,7 +59,7 @@ public sealed class FlmProcessManager : IDisposable
                 return;
             }
 
-            var args = $"serve {_modelTag} --host {_host} --port {_port} --pmode {_pmode}";
+            var args = $"--host {_host} serve {_modelTag} --pmode {_pmode}";
             if (_ctxLen > 0)
                 args += $" --ctx-len {_ctxLen}";
 
@@ -77,12 +77,12 @@ public sealed class FlmProcessManager : IDisposable
             _process.OutputDataReceived += (_, e) =>
             {
                 if (e.Data is not null)
-                    _logger.LogDebug("FLM: {Output}", e.Data);
+                    _logger.LogInformation("FLM: {Output}", e.Data);
             };
             _process.ErrorDataReceived += (_, e) =>
             {
                 if (e.Data is not null)
-                    _logger.LogWarning("FLM: {Error}", e.Data);
+                    _logger.LogInformation("FLM: {Error}", e.Data);
             };
             _process.Exited += OnProcessExited;
 
