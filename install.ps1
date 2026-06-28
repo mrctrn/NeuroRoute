@@ -442,6 +442,30 @@ function Invoke-Install {
         Write-Step "Skipping FastFlowLM installation"
     }
 
+    # ── Phase 1b: FLM Validation & Model Pull ─────────────────────────────────
+    if ($flmInstalled -or $resolvedFlmMode -eq "Global") {
+        Write-Header "Phase 1b: FLM Validation & Model Pull"
+        $flmExe = if ($flmInstalled) { Join-Path -Path $InstallDir -ChildPath "flm\flm.exe" } else { "flm.exe" }
+
+        Write-Step "Validating NPU..."
+        try {
+            $validateOutput = & $flmExe validate 2>&1
+            Write-Step $validateOutput
+        } catch {
+            Write-Warning "FLM validation failed (non-critical): $_"
+        }
+
+        $npuFlmModelTag = "gemma4-it:e4b"
+        Write-Step "Pulling default model ($npuFlmModelTag)..."
+        try {
+            & $flmExe pull $npuFlmModelTag 2>&1
+            Write-Success "Model $npuFlmModelTag pulled"
+        } catch {
+            Write-Warning "Model pull failed (non-critical): $_"
+            Write-Step "Run manually after install: flm pull $npuFlmModelTag"
+        }
+    }
+
     # ── Phase 2: NeuroRoute ───────────────────────────────────────────────────
     Write-Header "Phase 2: NeuroRoute Binary"
 
