@@ -2,6 +2,7 @@
 @rendermode InteractiveServer
 @using NeuroRoute.Dashboard.Models
 @inject NeuroRoute.Dashboard.Services.NeuroRouteApiClient Api
+@inject ISnackbar Snackbar
 @implements IDisposable
 
 <PageTitle>NeuroRoute Dashboard</PageTitle>
@@ -10,7 +11,114 @@
 
 <MudGrid Spacing="4">
     <MudItem xs="12" md="6">
-        <ComponentCard Title="NPU Backend" Component="@_npu" />
+        @* Expanded NPU Card *@
+        <MudCard Class="mb-4" Outlined="@(_npuStatus is null)">
+            <MudCardHeader>
+                <CardHeaderContent>
+                    <MudText Typo="Typo.subtitle1">
+                        <PulseIndicator _healthy="@(_npuStatus?.Status == "healthy" || _npu?.Status == "healthy")" />
+                        <strong>NPU Backend</strong>
+                        <MudText Color="@_npuStatusColor" Typo="Typo.caption" Style="font-weight: 600; text-transform: uppercase;" Class="float-end">
+                            @(_npuStatus?.Status ?? _npu?.Status ?? "unknown")
+                        </MudText>
+                    </MudText>
+                </CardHeaderContent>
+                <CardHeaderActions>
+                    <MudIconButton Icon="@Icons.Material.Filled.Refresh" Size="Size.Small" OnClick="@RefreshNpu" title="Refresh" />
+                    <MudButton Variant="Variant.Filled" Color="Color.Primary" OnClick="@RestartBackend" Size="Size.Small" Disabled="@_npuBusy">
+                        Restart
+                    </MudButton>
+                </CardHeaderActions>
+            </MudCardHeader>
+            <MudCardContent>
+                @if (_npuStatus is not null)
+                {
+                    <MudText Typo="Typo.body2">Backend: <MudText Typo="Typo.body2" Class="d-inline font-monospace">flm</MudText></MudText>
+                    <MudText Typo="Typo.body2">Host: <MudText Typo="Typo.body2" Class="d-inline font-monospace">@_npuStatus.Host:@_npuStatus.Port</MudText></MudText>
+                    @if (_npuStatus.Pid.HasValue)
+                    {
+                        <MudText Typo="Typo.body2">PID: <MudText Typo="Typo.body2" Class="d-inline font-monospace">@_npuStatus.Pid</MudText></MudText>
+                    }
+                    @if (_npuStatus.StartedAt.HasValue)
+                    {
+                        var uptime = DateTime.UtcNow - _npuStatus.StartedAt.Value;
+                        <MudText Typo="Typo.body2">Uptime: <MudText Typo="Typo.body2" Class="d-inline font-monospace">@(uptime.Hours)h @(uptime.Minutes)m @(uptime.Seconds)s</MudText></MudText>
+                    }
+
+                    <MudNumericField @bind-Value="@_ctxLen" Label="Context Length" Min="0" Max="262144" Placeholder="0 = default" Variant="Variant.Outlined" Class="mt-3" />
+
+                    <MudSelect @bind-Value="@_selectedPmode" Label="Power Mode" Variant="Variant.Outlined" Class="mt-2">
+                        <MudSelectItem Value="@("powersaver")">Power Saver</MudSelectItem>
+                        <MudSelectItem Value="@("balanced")">Balanced</MudSelectItem>
+                        <MudSelectItem Value="@("performance")">Performance</MudSelectItem>
+                        <MudSelectItem Value="@("turbo")">Turbo</MudSelectItem>
+                    </MudSelect>
+
+                    <MudSelect @bind-Value="@_selectedModel" Label="Model" Variant="Variant.Outlined" Class="mt-2" Disabled="@(_installedModels is null || _installedModels.Count == 0)">
+                        @if (_installedModels is not null)
+                        {
+                            @foreach (var m in _installedModels)
+                            {
+                                <MudSelectItem Value="@m.Tag">@m.Tag</MudSelectItem>
+                            }
+                        }
+                    </MudSelect>
+
+                    <MudCheckBox T="bool" @bind-Checked="@_persist" Label="Save as default" Class="mt-2" />
+
+                    <MudButton Variant="Variant.Filled" Color="Color.Primary" OnClick="@LoadModel" Size="Size.Small" Disabled="@(_npuBusy || string.IsNullOrEmpty(_selectedModel))" Class="mt-2">
+                        Load Model
+                    </MudButton>
+
+                    @if (!string.IsNullOrEmpty(_npuStatus.Message))
+                    {
+                        <MudText Typo="Typo.caption" Class="text-muted mt-2 d-block">@_npuStatus.Message</MudText>
+                    }
+
+                    <MudExpansionPanel Text="Manage Models" Class="mt-3">
+                        @* Pull Model *@
+                        <MudTextField @bind-Value="@_pullTag" Label="Pull model tag" Placeholder="gemma4-it:e4b" Variant="Variant.Outlined" Class="mt-2" />
+                        <MudButton Variant="Variant.Filled" Color="Color.Secondary" OnClick="@PullModel" Size="Size.Small" Disabled="@(_npuBusy || string.IsNullOrEmpty(_pullTag))">
+                            Pull Model
+                        </MudButton>
+
+                        @* Installed Models list with Remove *@
+                        @if (_installedModels is not null && _installedModels.Count > 0)
+                        {
+                            <MudText Typo="Typo.body2" Class="mt-2 fw-bold">Installed Models</MudText>
+                            @foreach (var m in _installedModels)
+                            {
+                                <MudText Typo="Typo.body2" Class="d-flex justify-content-between align-items-center mt-1">
+                                    <span class="font-monospace">@m.Tag</span>
+                                    <MudIconButton Icon="@Icons.Material.Filled.Delete" Size="Size.Small" Color="Color.Error" OnClick="@(() => RemoveModel(m.Tag))" title="Remove model" />
+                                </MudText>
+                            }
+                        }
+                    </MudExpansionPanel>
+                }
+                else if (_npu is not null)
+                {
+                    @* Fallback: show basic info from health endpoint *@
+                    <MudText Typo="Typo.body2">Backend: <MudText Typo="Typo.body2" Class="d-inline font-monospace">@_npu.Backend</MudText></MudText>
+                    @if (!string.IsNullOrEmpty(_npu.Model))
+                    {
+                        <MudText Typo="Typo.body2">Model: <MudText Typo="Typo.body2" Class="d-inline font-monospace">@_npu.Model</MudText></MudText>
+                    }
+                    @if (!string.IsNullOrEmpty(_npu.Endpoint))
+                    {
+                        <MudText Typo="Typo.body2">Endpoint: <MudText Typo="Typo.body2" Class="d-inline font-monospace">@_npu.Endpoint</MudText></MudText>
+                    }
+                    @if (!string.IsNullOrEmpty(_npu.Message))
+                    {
+                        <MudText Typo="Typo.caption" Class="text-muted mt-1 d-block">@_npu.Message</MudText>
+                    }
+                }
+                else
+                {
+                    <MudText Typo="Typo.body2" Class="text-muted">No data available.</MudText>
+                }
+            </MudCardContent>
+        </MudCard>
     </MudItem>
     <MudItem xs="12" md="6">
         <ComponentCard Title="GPU Backend" Component="@_gpu" />
@@ -46,8 +154,31 @@
     private MetricsSnapshot? _metrics;
     private ComponentHealth? _npu;
     private ComponentHealth? _gpu;
+    private NpuStatus? _npuStatus;
+    private List<FlmModelEntry>? _installedModels;
     private PeriodicTimer? _timer;
     private CancellationTokenSource? _cts;
+
+    private int _ctxLen;
+    private string _selectedModel = "";
+    private string _selectedPmode = "performance";
+    private bool _persist;
+    private string _pullTag = "";
+    private bool _npuBusy;
+
+    private Color _npuStatusColor
+    {
+        get
+        {
+            var status = _npuStatus?.Status ?? _npu?.Status;
+            return status switch
+            {
+                "healthy" => Color.Success,
+                "degraded" => Color.Warning,
+                _ => Color.Error
+            };
+        }
+    }
 
     protected override async Task OnInitializedAsync()
     {
@@ -63,6 +194,24 @@
         _metrics = await Api.GetMetricsAsync();
         _npu = _health?.Components?.GetValueOrDefault("npu");
         _gpu = _health?.Components?.GetValueOrDefault("gpu");
+
+        if (_npu?.Backend == "flm")
+        {
+            await RefreshNpu();
+        }
+    }
+
+    private async Task RefreshNpu()
+    {
+        _npuStatus = await Api.GetNpuStatusAsync();
+        _installedModels = await Api.GetNpuModelsAsync();
+
+        if (_npuStatus is not null)
+        {
+            _ctxLen = _npuStatus.CtxLen;
+            _selectedPmode = _npuStatus.Pmode;
+            _selectedModel = _npuStatus.ModelTag;
+        }
     }
 
     private async Task PollAsync(CancellationToken ct)
@@ -72,6 +221,44 @@
             await Refresh();
             StateHasChanged();
         }
+    }
+
+    private async Task RestartBackend()
+    {
+        _npuBusy = true;
+        var ok = await Api.RestartBackendAsync();
+        Snackbar.Add(ok ? "Backend restart triggered" : "Backend restart failed", ok ? Severity.Success : Severity.Error);
+        await Task.Delay(2000);
+        _npuBusy = false;
+    }
+
+    private async Task LoadModel()
+    {
+        _npuBusy = true;
+        var ok = await Api.LoadNpuModelAsync(_selectedModel, _ctxLen, _selectedPmode, _persist);
+        Snackbar.Add(ok ? $"Model '{_selectedModel}' loaded" : "Failed to load model", ok ? Severity.Success : Severity.Error);
+        await Task.Delay(1000);
+        await RefreshNpu();
+        _npuBusy = false;
+    }
+
+    private async Task PullModel()
+    {
+        if (string.IsNullOrEmpty(_pullTag)) return;
+        _npuBusy = true;
+        var ok = await Api.PullNpuModelAsync(_pullTag);
+        Snackbar.Add(ok ? $"Pulling model '{_pullTag}' in background" : "Failed to start pull", ok ? Severity.Info : Severity.Error);
+        _pullTag = "";
+        _npuBusy = false;
+    }
+
+    private async Task RemoveModel(string tag)
+    {
+        _npuBusy = true;
+        var ok = await Api.RemoveNpuModelAsync(tag);
+        Snackbar.Add(ok ? $"Model '{tag}' removed" : "Failed to remove model", ok ? Severity.Success : Severity.Error);
+        await RefreshNpu();
+        _npuBusy = false;
     }
 
     public void Dispose()

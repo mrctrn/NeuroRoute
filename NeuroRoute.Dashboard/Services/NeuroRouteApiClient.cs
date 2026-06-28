@@ -1,4 +1,5 @@
 using System.Net.Http.Json;
+using System.Text.Json;
 using NeuroRoute.Dashboard.Models;
 
 namespace NeuroRoute.Dashboard.Services;
@@ -73,6 +74,57 @@ public sealed class NeuroRouteApiClient
         try
         {
             var response = await _http.PostAsync("/v1/admin/stop", null);
+            return response.IsSuccessStatusCode;
+        }
+        catch { return false; }
+    }
+
+    public async Task<NpuStatus?> GetNpuStatusAsync(CancellationToken ct = default)
+    {
+        try
+        {
+            return await _http.GetFromJsonAsync<NpuStatus>("/v1/admin/npu", ct);
+        }
+        catch { return null; }
+    }
+
+    public async Task<List<FlmModelEntry>?> GetNpuModelsAsync(string filter = "installed", CancellationToken ct = default)
+    {
+        try
+        {
+            return await _http.GetFromJsonAsync<List<FlmModelEntry>>($"/v1/admin/npu/models?filter={filter}", ct);
+        }
+        catch { return null; }
+    }
+
+    public async Task<bool> LoadNpuModelAsync(string modelTag, int ctxLen, string pmode, bool persist)
+    {
+        try
+        {
+            var response = await _http.PostAsJsonAsync("/v1/admin/npu/load", new
+            {
+                modelTag, ctxLen, pmode, persist
+            });
+            return response.IsSuccessStatusCode;
+        }
+        catch { return false; }
+    }
+
+    public async Task<bool> PullNpuModelAsync(string tag)
+    {
+        try
+        {
+            var response = await _http.PostAsJsonAsync("/v1/admin/npu/pull", new { tag });
+            return response.IsSuccessStatusCode;
+        }
+        catch { return false; }
+    }
+
+    public async Task<bool> RemoveNpuModelAsync(string tag)
+    {
+        try
+        {
+            var response = await _http.DeleteAsync($"/v1/admin/npu/models/{tag}");
             return response.IsSuccessStatusCode;
         }
         catch { return false; }
