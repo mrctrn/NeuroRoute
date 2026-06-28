@@ -124,6 +124,19 @@ function Test-Administrator {
     return $principal.IsInRole([Security.Principal.WindowsBuiltInRole]::Administrator)
 }
 
+function Test-FlmVersion {
+    param([string]$Path)
+    if (-not (Test-Path -LiteralPath $Path)) {
+        return $null
+    }
+    try {
+        $versionOutput = & $Path --version 2>&1
+        return ($versionOutput -join " ").Trim()
+    } catch {
+        return $null
+    }
+}
+
 function Test-FlmInPath {
     $flmPath = Get-Command "flm.exe" -ErrorAction SilentlyContinue
     if ($flmPath) {
@@ -167,10 +180,19 @@ function Get-FlmInstaller {
 function Install-FlmSideload {
     param([string]$TargetDir)
 
+    $flmDir = Join-Path -Path $TargetDir -ChildPath "flm"
+    $flmExe = Join-Path -Path $flmDir -ChildPath "flm.exe"
+
+    # Check if FLM already sideloaded with a valid version
+    $existingVersion = Test-FlmVersion -Path $flmExe
+    if ($existingVersion) {
+        Write-Success "FastFlowLM already sideloaded at $flmDir (version: $existingVersion)"
+        return $true
+    }
+
     $setupPath = Get-FlmInstaller
     if (-not $setupPath) { return $false }
 
-    $flmDir = Join-Path -Path $TargetDir -ChildPath "flm"
     Write-Step "Installing FastFlowLM to $flmDir (silent mode)..."
     try {
         $proc = Start-Process -FilePath $setupPath -ArgumentList @("/VERYSILENT", "/DIR=`"$flmDir`"") -Wait -PassThru -NoNewWindow
@@ -182,7 +204,6 @@ function Install-FlmSideload {
         return $false
     }
 
-    $flmExe = Join-Path -Path $flmDir -ChildPath "flm.exe"
     if (Test-Path -LiteralPath $flmExe) {
         Write-Success "FastFlowLM sideloaded at $flmDir"
         return $true
@@ -194,6 +215,13 @@ function Install-FlmSideload {
 }
 
 function Install-FlmGlobal {
+    # Check if FLM already globally installed with a valid version
+    $existing = Test-FlmInPath
+    if ($existing.Found -and $existing.Version -ne "unknown") {
+        Write-Success "FastFlowLM already installed globally ($($existing.Path), version: $($existing.Version))"
+        return $true
+    }
+
     $setupPath = Get-FlmInstaller
     if (-not $setupPath) { return $false }
 
@@ -210,7 +238,7 @@ function Install-FlmGlobal {
 
     $result = Test-FlmInPath
     if ($result.Found) {
-        Write-Success "FastFlowLM installed globally ($($result.Path))"
+        Write-Success "FastFlowLM installed globally ($($result.Path), version: $($result.Version))"
         return $true
     }
 
@@ -284,7 +312,7 @@ function Build-NeuroRouteConfig {
         }
         Kestrel = @{
             Endpoints = @{
-                Http = @{ Url = "http://localhost:5000" }
+                Http = @{ Url = "http://0.0.0.0:5000" }
             }
         }
         Logging = @{
@@ -297,24 +325,47 @@ function Build-NeuroRouteConfig {
     }
 }
 
+function Build-DashboardConfig {
+    return @{
+        Kestrel = @{
+            Endpoints = @{
+                Http = @{ Url = "http://0.0.0.0:5001" }
+            }
+        }
+        Logging = @{
+            LogLevel = @{
+                Default               = "Information"
+                "Microsoft.AspNetCore" = "Warning"
+            }
+        }
+        AllowedHosts = "*"
+        NeuroRouteApi = @{
+            ServiceUrl = "http://localhost:5000"
+        }
+    }
+}
+
 # ─── Uninstall ──────────────────────────────────────────────────────────────────
 
 function Invoke-Uninstall {
     Write-Header "Uninstall NeuroRoute"
     Write-Step "Using install directory: $InstallDir"
 
-    # Stop service
-    $service = Get-Service -Name "NeuroRoute" -ErrorAction SilentlyContinue
-    if ($service) {
-        Write-Step "Stopping NeuroRoute service..."
-        if ($service.Status -eq "Running") {
-            Stop-Service -Name "NeuroRoute" -Force -ErrorAction SilentlyContinue
+    # Stop both services
+    $serviceNames = @("NeuroRoute", "NeuroRouteDashboard")
+    foreach ($name in $serviceNames) {
+        $service = Get-Service -Name $name -ErrorAction SilentlyContinue
+        if ($service) {
+            Write-Step "Stopping $name service..."
+            if ($service.Status -eq "Running") {
+                Stop-Service -Name $name -Force -ErrorAction SilentlyContinue
+            }
+            Write-Step "Deleting $name service..."
+            sc.exe delete $name | Out-Null
+            Write-Success "$name service removed"
+        } else {
+            Write-Step "No $name service found"
         }
-        Write-Step "Deleting NeuroRoute service..."
-        sc.exe delete "NeuroRoute" | Out-Null
-        Write-Success "Service removed"
-    } else {
-        Write-Step "No NeuroRoute service found"
     }
 
     # Remove Start Menu shortcuts
@@ -399,6 +450,8 @@ function Invoke-Install {
         # Build from local source
         $serviceProj = Join-Path -Path $PSScriptRoot -ChildPath "NeuroRoute.Service\NeuroRoute.Service.csproj"
         $trayProj = Join-Path -Path $PSScriptRoot -ChildPath "NeuroRoute.Tray\NeuroRoute.Tray.csproj"
+        $dashboardProj = Join-Path -Path $PSScriptRoot -ChildPath "NeuroRoute.Dashboard\NeuroRoute.Dashboard.csproj"
+        $dashboardDir = Join-Path -Path $InstallDir -ChildPath "Dashboard"
 
         if (-not (Test-Path -LiteralPath $serviceProj)) {
             Write-Error "Cannot find NeuroRoute.Service.csproj at $serviceProj"
@@ -416,6 +469,12 @@ function Invoke-Install {
             dotnet publish $trayProj -c Release -r win-x64 --self-contained -o $InstallDir --nologo
             if ($LASTEXITCODE -ne 0) { throw "Tray build failed" }
             Write-Success "Tray built"
+
+            Write-Step "Building Dashboard..."
+            New-Item -ItemType Directory -Path $dashboardDir -Force | Out-Null
+            dotnet publish $dashboardProj -c Release -r win-x64 --self-contained -o $dashboardDir --nologo
+            if ($LASTEXITCODE -ne 0) { throw "Dashboard build failed" }
+            Write-Success "Dashboard built"
         } else {
             Write-Step "Skipping build"
             exit 0
@@ -462,27 +521,37 @@ function Invoke-Install {
     Set-Content -Path $configPath -Value $configJson -Encoding UTF8
     Write-Success "Configuration written to $configPath"
 
+    # Dashboard config
+    $dashboardDir = Join-Path -Path $InstallDir -ChildPath "Dashboard"
+    $dashboardConfig = Build-DashboardConfig
+    $dashboardConfigPath = Join-Path -Path $dashboardDir -ChildPath "appsettings.json"
+    $dashboardConfigJson = $dashboardConfig | ConvertTo-Json -Depth 10
+    Set-Content -Path $dashboardConfigPath -Value $dashboardConfigJson -Encoding UTF8
+    Write-Success "Dashboard configuration written to $dashboardConfigPath"
+
     # ── Phase 4: Service Registration ─────────────────────────────────────────
     Write-Header "Phase 4: Windows Service"
 
-    if (Confirm-Step "Register and start NeuroRoute as a Windows Service?") {
-        # Remove existing service if present
-        $existing = Get-Service -Name "NeuroRoute" -ErrorAction SilentlyContinue
-        if ($existing) {
-            Write-Step "Existing NeuroRoute service found, removing..."
-            if ($existing.Status -eq "Running") {
-                Stop-Service -Name "NeuroRoute" -Force -ErrorAction SilentlyContinue
+    if (Confirm-Step "Register and start NeuroRoute services?") {
+        # Remove existing services if present
+        foreach ($name in @("NeuroRoute", "NeuroRouteDashboard")) {
+            $existing = Get-Service -Name $name -ErrorAction SilentlyContinue
+            if ($existing) {
+                Write-Step "Existing $name service found, removing..."
+                if ($existing.Status -eq "Running") {
+                    Stop-Service -Name $name -Force -ErrorAction SilentlyContinue
+                }
+                sc.exe delete $name | Out-Null
             }
-            sc.exe delete "NeuroRoute" | Out-Null
-            Start-Sleep -Seconds 2
         }
+        Start-Sleep -Seconds 2
 
+        # ── Main Service ──────────────────────────────────────────────────────
         $binPath = "`"$InstallDir\NeuroRoute.Service.exe`" --content-root `"$InstallDir`""
-        Write-Step "Creating service with binPath: $binPath"
+        Write-Step "Creating NeuroRoute service with binPath: $binPath"
 
         sc.exe create "NeuroRoute" binPath=$binPath start=auto | Out-Null
-        if ($LASTEXITCODE -ne 0) { throw "sc.exe create failed with exit code $LASTEXITCODE" }
-
+        if ($LASTEXITCODE -ne 0) { throw "sc.exe create NeuroRoute failed with exit code $LASTEXITCODE" }
         sc.exe description "NeuroRoute" "Hybrid NPU-to-GPU routing gateway for local LLM execution" | Out-Null
 
         Write-Step "Starting NeuroRoute service..."
@@ -513,6 +582,23 @@ function Invoke-Install {
         } else {
             Write-Warning "Health endpoint not responding within ${timeout}s. Service may still be starting."
         }
+
+        # ── Dashboard Service ─────────────────────────────────────────────────
+        $dashboardDir = Join-Path -Path $InstallDir -ChildPath "Dashboard"
+        $dashboardBinPath = "`"$dashboardDir\NeuroRoute.Dashboard.exe`" --content-root `"$dashboardDir`""
+        Write-Step "Creating NeuroRouteDashboard service..."
+
+        sc.exe create "NeuroRouteDashboard" binPath=$dashboardBinPath start=auto | Out-Null
+        if ($LASTEXITCODE -ne 0) { throw "sc.exe create NeuroRouteDashboard failed with exit code $LASTEXITCODE" }
+        sc.exe description "NeuroRouteDashboard" "NeuroRoute Blazor Dashboard — live health and metrics UI" | Out-Null
+
+        Write-Step "Starting NeuroRouteDashboard service..."
+        Start-Service -Name "NeuroRouteDashboard" -ErrorAction SilentlyContinue
+        if ($LASTEXITCODE -ne 0 -or (Get-Service -Name "NeuroRouteDashboard").Status -ne "Running") {
+            Write-Warning "Dashboard service created but may not have started."
+        } else {
+            Write-Success "NeuroRouteDashboard service is running"
+        }
     }
 
     # ── Phase 5: Start Menu Shortcuts ─────────────────────────────────────────
@@ -523,11 +609,17 @@ function Invoke-Install {
             $startMenuPath = Join-Path -Path ([Environment]::GetFolderPath("CommonStartMenu")) -ChildPath "Programs\NeuroRoute"
             New-Item -ItemType Directory -Path $startMenuPath -Force | Out-Null
 
-            # Dashboard URL shortcut
-            $dashboardContent = "[InternetShortcut]`nURL=http://localhost:5000`n"
+            # Dashboard URL shortcut (port 5001)
+            $dashboardContent = "[InternetShortcut]`nURL=http://$([System.Net.Dns]::GetHostName()):5001`n"
             $dashboardUrlPath = Join-Path -Path $startMenuPath -ChildPath "NeuroRoute Dashboard.url"
             Set-Content -Path $dashboardUrlPath -Value $dashboardContent -Encoding ASCII
             Write-Step "  Dashboard URL shortcut created"
+
+            # Service API URL shortcut (port 5000)
+            $serviceContent = "[InternetShortcut]`nURL=http://$([System.Net.Dns]::GetHostName()):5000/v1/health`n"
+            $serviceUrlPath = Join-Path -Path $startMenuPath -ChildPath "NeuroRoute API Health.url"
+            Set-Content -Path $serviceUrlPath -Value $serviceContent -Encoding ASCII
+            Write-Step "  Service API URL shortcut created"
 
             # Tray shortcut
             $wshell = New-Object -ComObject WScript.Shell
@@ -557,13 +649,23 @@ function Invoke-Install {
     $status = Get-Service -Name "NeuroRoute" -ErrorAction SilentlyContinue
     $serviceStatus = if ($status) { $status.Status } else { "Not installed" }
 
+    $hostName = [System.Net.Dns]::GetHostName()
+    $dashboardStatus = Get-Service -Name "NeuroRouteDashboard" -ErrorAction SilentlyContinue
+    $dashboardStatusText = if ($dashboardStatus) { $dashboardStatus.Status } else { "Not installed" }
+
     Write-Host @"
 
   ✓ NeuroRoute Service installed
       Service:  NeuroRoute
       Status:   $serviceStatus
       Binary:   $InstallDir\NeuroRoute.Service.exe
-      Port:     http://localhost:5000
+      API:      http://$($hostName):5000
+
+  ✓ NeuroRoute Dashboard installed
+      Service:  NeuroRouteDashboard
+      Status:   $dashboardStatusText
+      Binary:   $InstallDir\Dashboard\NeuroRoute.Dashboard.exe
+      URL:      http://$($hostName):5001
 
 $(if ($flmInstalled) {
 "  ✓ FastFlowLM sideloaded
@@ -592,7 +694,8 @@ $(if ($flmInstalled) {
   2. Start a GPU backend on http://localhost:8080
        (LM Studio, llama.cpp, vLLM, etc.)
   3. Launch NeuroRoute Tray from Start Menu
-  4. Open Dashboard: http://localhost:5000
+  4. Open Dashboard: http://$($hostName):5001
+  5. Check API health: http://$($hostName):5000/v1/health
 
   To uninstall: .\install.ps1 -Uninstall
 
