@@ -47,8 +47,12 @@ else
     builder.Services.AddSingleton<OnnxBackend>();
 
     // FLM backend
+    var flmHost = neuroRouteSection["NpuFlmHost"] ?? "127.0.0.1";
+    var flmPort = neuroRouteSection.GetValue<int?>("NpuFlmPort") ?? 52625;
+    var flmEndpoint = neuroRouteSection["NpuFlmEndpoint"] ?? $"http://{flmHost}:{flmPort}";
     builder.Services.AddHttpClient<FlmClient>(client =>
     {
+        client.BaseAddress = new Uri(flmEndpoint);
         client.Timeout = TimeSpan.FromMinutes(5);
     });
     builder.Services.AddSingleton(sp =>
