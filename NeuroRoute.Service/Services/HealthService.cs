@@ -83,7 +83,6 @@ public sealed class HealthService
 
         if (backend.Equals("flm", StringComparison.OrdinalIgnoreCase))
         {
-            var modelName = _options.Value.NpuFlmModelTag;
             if (_flmProcessManager is null)
             {
                 return new ComponentHealth
@@ -91,17 +90,18 @@ public sealed class HealthService
                     Status = "unhealthy",
                     Message = "FLM process manager not available",
                     Backend = "flm",
-                    Model = modelName,
                     ModelLoaded = false
                 };
             }
+            var status = _flmProcessManager.GetStatus();
             return new ComponentHealth
             {
-                Status = _flmProcessManager.Status == "healthy" ? "healthy" : "unhealthy",
-                Message = _flmProcessManager.StatusMessage ?? "FLM backend unavailable",
+                Status = status.Status == "healthy" ? "healthy" : "unhealthy",
+                Message = status.Message ?? "FLM backend unavailable",
                 Backend = "flm",
-                Model = modelName,
-                ModelLoaded = _flmProcessManager.Status == "healthy"
+                Endpoint = $"http://{status.Host}:{status.Port}",
+                Model = status.ModelTag,
+                ModelLoaded = status.Status == "healthy"
             };
         }
         else
