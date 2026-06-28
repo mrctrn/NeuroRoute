@@ -303,6 +303,10 @@ function Build-NeuroRouteConfig {
             NpuModelPath       = "Models/gemma-4-int4.onnx"
             NpuFlmModelTag     = "gemma4-it:e4b"
             NpuFlmEndpoint     = "http://127.0.0.1:52625"
+            NpuFlmHost         = "127.0.0.1"
+            NpuFlmPort         = 52625
+            NpuFlmCtxLen       = 0
+            NpuFlmPmode        = "performance"
             GpuEndpoint        = "http://localhost:8080"
             NpuLimit           = 65536
             NpuSlice           = 2048
