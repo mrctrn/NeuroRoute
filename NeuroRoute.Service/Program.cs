@@ -54,11 +54,22 @@ else
     builder.Services.AddSingleton(sp =>
     {
         var config = sp.GetRequiredService<IConfiguration>();
+        var options = sp.GetRequiredService<IOptions<NeuroRouteOptions>>().Value;
         var modelTag = config.GetSection("NeuroRoute")["NpuFlmModelTag"]
                        ?? "gemma4-it:e4b";
         var flmClient = sp.GetRequiredService<FlmClient>();
         var logger = sp.GetRequiredService<ILogger<FlmProcessManager>>();
-        return new FlmProcessManager(modelTag, flmClient, logger);
+        var sideloadDir = Path.Combine(AppContext.BaseDirectory, "flm");
+        return new FlmProcessManager(
+            modelTag,
+            options.NpuFlmHost,
+            options.NpuFlmPort,
+            options.NpuFlmCtxLen,
+            options.NpuFlmPmode,
+            flmClient,
+            logger,
+            Directory.Exists(sideloadDir) ? sideloadDir : null
+        );
     });
     builder.Services.AddSingleton<FlmBackend>();
 

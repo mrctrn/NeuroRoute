@@ -4,11 +4,17 @@ namespace NeuroRoute.Service.Npu;
 
 public sealed class FlmProcessManager : IDisposable
 {
-    private readonly string _modelTag;
+    private string _modelTag;
+    private readonly string _host;
+    private readonly int _port;
+    private int _ctxLen;
+    private string _pmode;
+    private readonly string? _sideloadDir;
     private readonly FlmClient _flmClient;
     private readonly ILogger<FlmProcessManager> _logger;
     private Process? _process;
     private int _restartCount;
+    private DateTime? _startTime;
     private const int MaxRestarts = 3;
     private const int HealthPollIntervalMs = 500;
     private const int HealthPollTimeoutMs = 30_000;
@@ -18,11 +24,24 @@ public sealed class FlmProcessManager : IDisposable
     public string Status { get; private set; } = "unavailable";
     public string? StatusMessage { get; private set; }
 
-    public FlmProcessManager(string modelTag, FlmClient flmClient, ILogger<FlmProcessManager> logger)
+    public FlmProcessManager(
+        string modelTag,
+        string host,
+        int port,
+        int ctxLen,
+        string pmode,
+        FlmClient flmClient,
+        ILogger<FlmProcessManager> logger,
+        string? sideloadDir = null)
     {
         _modelTag = modelTag;
+        _host = host;
+        _port = port;
+        _ctxLen = ctxLen;
+        _pmode = pmode;
         _flmClient = flmClient;
         _logger = logger;
+        _sideloadDir = sideloadDir;
     }
 
     public async Task StartAsync(CancellationToken ct = default)
@@ -40,10 +59,14 @@ public sealed class FlmProcessManager : IDisposable
                 return;
             }
 
+            var args = $"serve {_modelTag} --host {_host} --port {_port} --pmode {_pmode}";
+            if (_ctxLen > 0)
+                args += $" --ctx-len {_ctxLen}";
+
             var startInfo = new ProcessStartInfo
             {
                 FileName = flmPath,
-                Arguments = $"serve {_modelTag}",
+                Arguments = args,
                 UseShellExecute = false,
                 RedirectStandardOutput = true,
                 RedirectStandardError = true,
@@ -72,6 +95,8 @@ public sealed class FlmProcessManager : IDisposable
             var ready = await WaitForReadyAsync(ct);
             if (ready)
             {
+                _restartCount = 0;
+                _startTime = DateTime.UtcNow;
                 Status = "healthy";
                 StatusMessage = $"FLM server ready (PID: {_process.Id})";
                 _logger.LogInformation("FLM backend ready");
@@ -169,8 +194,39 @@ public sealed class FlmProcessManager : IDisposable
         return false;
     }
 
-    private static string? FindFlmExecutable()
+    public FlmStatus GetStatus()
     {
+        return new FlmStatus(
+            Status,
+            StatusMessage,
+            _modelTag,
+            _host,
+            _port,
+            _ctxLen,
+            _pmode,
+            _process?.HasExited == false ? _process.Id : null,
+            _startTime
+        );
+    }
+
+    public void UpdateModel(string modelTag, int ctxLen, string pmode)
+    {
+        _modelTag = modelTag;
+        _ctxLen = ctxLen;
+        _pmode = pmode;
+    }
+
+    private string? FindFlmExecutable()
+    {
+        // Check sideload dir first (version-pinned)
+        if (_sideloadDir is not null)
+        {
+            var sideloadPath = Path.Combine(_sideloadDir, "flm.exe");
+            if (File.Exists(sideloadPath))
+                return sideloadPath;
+        }
+
+        // Fall back to PATH
         var paths = Environment.GetEnvironmentVariable("PATH")?.Split(Path.PathSeparator) ?? [];
         foreach (var path in paths)
         {
