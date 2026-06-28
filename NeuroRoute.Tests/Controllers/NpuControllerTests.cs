@@ -24,7 +24,7 @@ public sealed class NpuControllerTests
         env.ContentRootPath.Returns(Directory.GetCurrentDirectory());
         var logger = NullLogger<NpuController>.Instance;
 
-        var controller = new NpuController(processManager, options, env, logger);
+        var controller = new NpuController(options, env, logger, flmProcessManager: processManager);
         var result = controller.GetStatus();
 
         var okResult = Assert.IsType<OkObjectResult>(result);
@@ -32,5 +32,19 @@ public sealed class NpuControllerTests
         Assert.Equal("gemma4-it:e4b", status.ModelTag);
         Assert.Equal("127.0.0.1", status.Host);
         Assert.Equal(52625, status.Port);
+    }
+
+    [Fact]
+    public void GetStatus_Returns503_WhenFlmProcessManagerNotAvailable()
+    {
+        var options = Options.Create(new NeuroRouteOptions());
+        var env = Substitute.For<IHostEnvironment>();
+        var logger = NullLogger<NpuController>.Instance;
+
+        var controller = new NpuController(options, env, logger);
+        var result = controller.GetStatus();
+
+        var statusCodeResult = Assert.IsType<ObjectResult>(result);
+        Assert.Equal(503, statusCodeResult.StatusCode);
     }
 }

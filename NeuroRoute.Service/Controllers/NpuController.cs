@@ -11,17 +11,17 @@ namespace NeuroRoute.Service.Controllers;
 [Route("v1/admin/npu")]
 public sealed class NpuController : ControllerBase
 {
-    private readonly FlmProcessManager _flmProcessManager;
+    private readonly FlmProcessManager? _flmProcessManager;
     private readonly FlmCliService? _flmCliService;
     private readonly IOptions<NeuroRouteOptions> _options;
     private readonly IHostEnvironment _env;
     private readonly ILogger<NpuController> _logger;
 
     public NpuController(
-        FlmProcessManager flmProcessManager,
         IOptions<NeuroRouteOptions> options,
         IHostEnvironment env,
         ILogger<NpuController> logger,
+        FlmProcessManager? flmProcessManager = null,
         FlmCliService? flmCliService = null)
     {
         _flmProcessManager = flmProcessManager;
@@ -34,6 +34,9 @@ public sealed class NpuController : ControllerBase
     [HttpGet]
     public IActionResult GetStatus()
     {
+        if (_flmProcessManager is null)
+            return StatusCode(503, new { message = "FLM process manager not available (mock mode?)" });
+
         return Ok(_flmProcessManager.GetStatus());
     }
 
@@ -41,7 +44,7 @@ public sealed class NpuController : ControllerBase
     public async Task<IActionResult> ListModels([FromQuery] string filter = "installed")
     {
         if (_flmCliService is null)
-            return StatusCode(500, new { message = "FLM CLI not available" });
+            return StatusCode(503, new { message = "FLM CLI not available (mock mode?)" });
 
         var models = await _flmCliService.ListModelsAsync(filter);
         return Ok(models);
@@ -51,7 +54,7 @@ public sealed class NpuController : ControllerBase
     public IActionResult PullModel([FromBody] NpuPullRequest request)
     {
         if (_flmCliService is null)
-            return StatusCode(500, new { message = "FLM CLI not available" });
+            return StatusCode(503, new { message = "FLM CLI not available (mock mode?)" });
 
         _logger.LogInformation("Pulling FLM model: {Tag}", request.Tag);
 
@@ -70,6 +73,9 @@ public sealed class NpuController : ControllerBase
     [HttpPost("load")]
     public async Task<IActionResult> LoadModel([FromBody] NpuLoadRequest request)
     {
+        if (_flmProcessManager is null)
+            return StatusCode(503, new { message = "FLM process manager not available (mock mode?)" });
+
         _logger.LogInformation("Loading FLM model: {Tag}, ctxLen={CtxLen}, pmode={Pmode}, persist={Persist}",
             request.ModelTag, request.CtxLen, request.Pmode, request.Persist);
 
@@ -79,7 +85,6 @@ public sealed class NpuController : ControllerBase
         }
 
         await _flmProcessManager.StopAsync();
-
         _flmProcessManager.UpdateModel(request.ModelTag, request.CtxLen, request.Pmode);
         await _flmProcessManager.StartAsync(HttpContext.RequestAborted);
 
@@ -90,7 +95,7 @@ public sealed class NpuController : ControllerBase
     public async Task<IActionResult> RemoveModel(string tag)
     {
         if (_flmCliService is null)
-            return StatusCode(500, new { message = "FLM CLI not available" });
+            return StatusCode(503, new { message = "FLM CLI not available (mock mode?)" });
 
         _logger.LogInformation("Removing FLM model: {Tag}", tag);
         var success = await _flmCliService.RemoveModelAsync(tag);
