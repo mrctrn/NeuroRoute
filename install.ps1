@@ -601,9 +601,27 @@ function Invoke-Install {
         }
     }
 
-    # ── Phase 5: Start Menu Shortcuts ─────────────────────────────────────────
+    # ── Phase 5: Firewall Rules ───────────────────────────────────────────────
+    Write-Header "Phase 5: Firewall Rules"
+
+    if (Confirm-Step "Create Windows Firewall rules for NeuroRoute ports?" -or -not $Confirm) {
+        foreach ($rule in @(
+            @{ Name = "NeuroRoute API (5000)"; Port = 5000 }
+            @{ Name = "NeuroRoute Dashboard (5001)"; Port = 5001 }
+        )) {
+            $existing = Get-NetFirewallRule -DisplayName $rule.Name -ErrorAction SilentlyContinue
+            if (-not $existing) {
+                New-NetFirewallRule -DisplayName $rule.Name -Direction Inbound -Protocol TCP -LocalPort $rule.Port -Action Allow -Profile Any | Out-Null
+                Write-Success "Firewall rule '$($rule.Name)' created"
+            } else {
+                Write-Step "Firewall rule '$($rule.Name)' already exists"
+            }
+        }
+    }
+
+    # ── Phase 6: Start Menu Shortcuts ─────────────────────────────────────────
     if (-not $ServiceOnly) {
-        Write-Header "Phase 5: Start Menu Shortcuts"
+        Write-Header "Phase 6: Start Menu Shortcuts"
 
         if (Confirm-Step "Create Start Menu shortcuts?") {
             $startMenuPath = Join-Path -Path ([Environment]::GetFolderPath("CommonStartMenu")) -ChildPath "Programs\NeuroRoute"
@@ -643,7 +661,7 @@ function Invoke-Install {
         }
     }
 
-    # ── Phase 6: Summary ──────────────────────────────────────────────────────
+    # ── Phase 7: Summary ──────────────────────────────────────────────────────
     Write-Header "Installation Complete"
 
     $status = Get-Service -Name "NeuroRoute" -ErrorAction SilentlyContinue
