@@ -85,7 +85,16 @@ public sealed class FlmCliService
             onOutput?.Invoke($"[stderr] {e.Data}");
         };
 
-        process.Start();
+        try
+        {
+            process.Start();
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "Failed to start flm.exe for '{Arguments}'", arguments);
+            return (-1, $"Failed to start flm.exe: {ex.Message}");
+        }
+
         process.BeginOutputReadLine();
         process.BeginErrorReadLine();
 
