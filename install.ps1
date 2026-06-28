@@ -601,23 +601,23 @@ function Invoke-Install {
         }
     }
 
-    # ── Phase 5: Firewall Rules ───────────────────────────────────────────────
-    Write-Header "Phase 5: Firewall Rules"
-
-    if (Confirm-Step "Create Windows Firewall rules for NeuroRoute ports?" -or -not $Confirm) {
-        foreach ($rule in @(
-            @{ Name = "NeuroRoute API (5000)"; Port = 5000 }
-            @{ Name = "NeuroRoute Dashboard (5001)"; Port = 5001 }
-        )) {
-            $existing = Get-NetFirewallRule -DisplayName $rule.Name -ErrorAction SilentlyContinue
-            if (-not $existing) {
-                New-NetFirewallRule -DisplayName $rule.Name -Direction Inbound -Protocol TCP -LocalPort $rule.Port -Action Allow -Profile Any | Out-Null
-                Write-Success "Firewall rule '$($rule.Name)' created"
-            } else {
-                Write-Step "Firewall rule '$($rule.Name)' already exists"
-            }
-        }
-    }
+    # ── Phase 5: Firewall Rules (disabled — uncomment if firewall blocks access) ──
+    # Write-Header "Phase 5: Firewall Rules"
+    #
+    # if (Confirm-Step "Create Windows Firewall rules for NeuroRoute ports?" -or -not $Confirm) {
+    #     foreach ($rule in @(
+    #         @{ Name = "NeuroRoute API (5000)"; Port = 5000 }
+    #         @{ Name = "NeuroRoute Dashboard (5001)"; Port = 5001 }
+    #     )) {
+    #         $existing = Get-NetFirewallRule -DisplayName $rule.Name -ErrorAction SilentlyContinue
+    #         if (-not $existing) {
+    #             New-NetFirewallRule -DisplayName $rule.Name -Direction Inbound -Protocol TCP -LocalPort $rule.Port -Action Allow -Profile Any | Out-Null
+    #             Write-Success "Firewall rule '$($rule.Name)' created"
+    #         } else {
+    #             Write-Step "Firewall rule '$($rule.Name)' already exists"
+    #         }
+    #     }
+    # }
 
     # ── Phase 6: Start Menu Shortcuts ─────────────────────────────────────────
     if (-not $ServiceOnly) {
