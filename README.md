@@ -22,7 +22,7 @@ User Request → Token Counter → NPU Classifier → [NPU generates | GPU escal
 - **Configurable context window** — NpuLimit up to 128k tokens
 - **Health monitoring** — component-level `/v1/health` endpoint
 - **Metrics endpoint** — routing ratios, task type distribution, latency
-- **Admin endpoints** — stop, restart backend, reload config, view logs
+- **Admin endpoints** — stop, restart backend, reload config, view logs, NPU model management (pull, load, remove, list)
 - **Blazor Dashboard** — live health + metrics web UI (5s auto-refresh, installed as companion service)
 - **System Tray app** — WinForms NotifyIcon with health status + actions
 - **Mock backends** — run without real NPU/GPU for dev and testing

@@ -245,6 +245,153 @@ Metrics reset on service restart.
 
 ---
 
+## Admin — NPU Model Management
+
+Available when `NpuBackend: "flm"`. These endpoints manage the FLM model lifecycle.
+
+### `GET /v1/admin/npu`
+
+Returns the current FLM runtime state as a `FlmStatus` record.
+
+#### Response (200)
+
+```json
+{
+  "status": "healthy",
+  "message": "FLM server ready (PID: 12345)",
+  "modelTag": "gemma4-it:e4b",
+  "host": "127.0.0.1",
+  "port": 52625,
+  "ctxLen": 65536,
+  "pmode": "performance",
+  "pid": 12345,
+  "startedAt": "2026-06-28T12:00:00Z"
+}
+```
+
+#### Response (503)
+
+When the FLM process manager is not available (mock mode):
+
+```json
+{
+  "message": "FLM process manager not available (mock mode?)"
+}
+```
+
+### `GET /v1/admin/npu/models`
+
+Lists available FLM models from `flm list --json`.
+
+#### Query Parameters
+
+| Parameter | Type | Default | Description |
+|-----------|------|---------|-------------|
+| `filter` | string | `installed` | Filter: `all`, `installed`, `not-installed` |
+
+#### Response (200)
+
+```json
+[
+  {
+    "tag": "gemma4-it:e4b",
+    "installed": true,
+    "size": "4.2 GB",
+    "quantization": "e4b",
+    "description": "Gemma 4 Instruct 4-bit"
+  }
+]
+```
+
+### `POST /v1/admin/npu/pull`
+
+Initiates an asynchronous model pull. Returns immediately — progress is logged to the NeuroRoute event log.
+
+#### Request Body
+
+```json
+{
+  "tag": "gemma4-it:e4b"
+}
+```
+
+#### Response (202)
+
+```json
+{
+  "message": "Pulling model 'gemma4-it:e4b' in background"
+}
+```
+
+### `POST /v1/admin/npu/load`
+
+Stops the current `flm serve` and restarts with a new model, context length, and/or power mode.
+
+#### Request Body
+
+```json
+{
+  "modelTag": "gemma4-it:e4b",
+  "ctxLen": 65536,
+  "pmode": "performance",
+  "persist": false
+}
+```
+
+| Field | Type | Default | Description |
+|-------|------|---------|-------------|
+| `modelTag` | string | (required) | Model tag to load |
+| `ctxLen` | int | `0` | Context length (`0` = model default) |
+| `pmode` | string | `performance` | Power mode: `powersaver`, `balanced`, `performance`, `turbo` |
+| `persist` | bool | `false` | When `true`, saves ctxLen and pmode to `appsettings.json` |
+
+#### Response (200)
+
+```json
+{
+  "message": "Model 'gemma4-it:e4b' loaded"
+}
+```
+
+### `DELETE /v1/admin/npu/models/{tag}`
+
+Removes a model from the local cache via `flm remove <tag>`.
+
+#### Response (200)
+
+```json
+{
+  "message": "Model 'gemma4-it:e4b' removed"
+}
+```
+
+### Client Examples (PowerShell)
+
+```pwsh
+# Get NPU status
+Invoke-RestMethod -Uri http://localhost:5000/v1/admin/npu
+
+# List installed models
+Invoke-RestMethod -Uri http://localhost:5000/v1/admin/npu/models
+
+# Load a new model
+Invoke-RestMethod -Uri http://localhost:5000/v1/admin/npu/load `
+  -Method Post `
+  -Body '{"modelTag":"gemma4-it:e4b","ctxLen":65536,"pmode":"performance","persist":true}' `
+  -ContentType "application/json"
+
+# Pull a model in background
+Invoke-RestMethod -Uri http://localhost:5000/v1/admin/npu/pull `
+  -Method Post `
+  -Body '{"tag":"gemma4-it:e4b"}' `
+  -ContentType "application/json"
+
+# Remove a model
+Invoke-RestMethod -Uri http://localhost:5000/v1/admin/npu/models/gemma4-it:e4b -Method Delete
+```
+
+---
+
 ## Admin — Mock Scenario Control
 
 Available only when `UseMockBackends: true` (dev/test mode). These endpoints let you program the fake NPU and GPU backends without real hardware.

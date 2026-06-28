@@ -168,6 +168,10 @@ The context window limit (`NpuLimit`, default 65536) and slice size (`NpuSlice`,
     "NpuModelPath": "path/to/your-onnx-model.onnx",
     "NpuFlmModelTag": "gemma4-it:e4b",
     "NpuFlmEndpoint": "http://127.0.0.1:52625",
+    "NpuFlmHost": "127.0.0.1",
+    "NpuFlmPort": 52625,
+    "NpuFlmCtxLen": 0,
+    "NpuFlmPmode": "performance",
     "GpuEndpoint": "http://localhost:8080",
     "NpuLimit": 65536,
     "NpuSlice": 2048,
@@ -183,7 +187,11 @@ The context window limit (`NpuLimit`, default 65536) and slice size (`NpuSlice`,
 | `NpuBackend` | `onnx` | both | Selects NPU inference provider (`onnx` or `flm`). FLM auto-starts `flm serve` as child process. |
 | `NpuModelPath` | `Models/gemma-4-int4.onnx` | onnx | Path to ONNX GenAI model file |
 | `NpuFlmModelTag` | `gemma4-it:e4b` | flm | FastFlowLM model tag for `flm serve` |
-| `NpuFlmEndpoint` | `http://127.0.0.1:52625` | flm | FastFlowLM server base URL |
+| `NpuFlmEndpoint` | `http://127.0.0.1:52625` | flm | FastFlowLM server base URL (derived from host:port if not set) |
+| `NpuFlmHost` | `127.0.0.1` | flm | Host binding for `flm serve --host` |
+| `NpuFlmPort` | `52625` | flm | Port for `flm serve --port` |
+| `NpuFlmCtxLen` | `0` | flm | Context length (`0` = model default, omit `--ctx-len`) |
+| `NpuFlmPmode` | `performance` | flm | NPU power mode: `powersaver`, `balanced`, `performance`, `turbo` |
 | `GpuEndpoint` | `http://localhost:8080` | both | Base URL of the OpenAI-compatible GPU server |
 | `NpuLimit` | 65536 | both | Max tokens for NPU-only classification (set to match model's context window) |
 | `NpuSlice` | 2048 | both | Tokens from end when prompt exceeds NpuLimit |
@@ -203,7 +211,21 @@ When `UseMockBackends` is `true`, the following endpoints are available for cont
 
 All values are configurable — no hardcoded model names.
 
-## 10. Deployment
+## 10. Admin NPU Endpoints
+
+When using `NpuBackend: "flm"`, the following endpoints manage the FLM model lifecycle:
+
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| GET | `/v1/admin/npu` | Returns current `FlmStatus` (model tag, host, port, ctxLen, pmode, pid, uptime) |
+| GET | `/v1/admin/npu/models?filter=installed` | Lists FLM models from `flm list --json` |
+| POST | `/v1/admin/npu/pull` | Async pull model `{"tag":"gemma4-it:e4b"}` (returns 202) |
+| POST | `/v1/admin/npu/load` | Switch model `{"modelTag","ctxLen","pmode","persist"}` — restarts `flm serve` |
+| DELETE | `/v1/admin/npu/models/{tag}` | Remove model via `flm remove <tag>` |
+
+Context window (`ctxLen`) and power mode (`pmode`) updates can be persisted to `appsettings.json` by setting `"persist": true`.
+
+## 11. Deployment
 
 - Build: `dotnet publish -r win-x64 --self-contained`
 - Install as Windows Service: `sc create NeuroRoute binPath=...\NeuroRoute.Service.exe`

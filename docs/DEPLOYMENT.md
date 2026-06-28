@@ -47,6 +47,8 @@ Invoke-WebRequest -Uri "https://github.com/mrctrn/NeuroRoute/releases/latest/dow
 |-------|--------|
 | Elevation | Auto-restarts as admin if needed |
 | FLM | Detects existing FLM → checks version (skips if valid); or sideloads/installs fresh |
+| FLM Validate | Runs `flm validate` to verify the FLM installation |
+| FLM Model Pull | Runs `flm pull <NpuFlmModelTag>` to download the default model |
 | NeuroRoute | Downloads release zip from GitHub (or builds from source: Service, Tray, Dashboard) |
 | Config | Generates `appsettings.json` for Service and Dashboard with correct backend, ports, paths |
 | Service | Registers `NeuroRoute` (API) and `NeuroRouteDashboard` as Windows Services, starts both |
@@ -163,7 +165,11 @@ Copy `appsettings.json` to the publish directory. All settings are in the `Neuro
 | `NpuBackend` | `onnx` | both | Selects NPU inference provider (`onnx` or `flm`) |
 | `NpuModelPath` | `Models/gemma-4-int4.onnx` | onnx | Path to ONNX GenAI model file (relative to exe or absolute) |
 | `NpuFlmModelTag` | `gemma4-it:e4b` | flm | FastFlowLM model tag for `flm serve` |
-| `NpuFlmEndpoint` | `http://127.0.0.1:52625` | flm | FastFlowLM server base URL |
+| `NpuFlmEndpoint` | `http://127.0.0.1:52625` | flm | FastFlowLM server base URL (derived from host:port if not set) |
+| `NpuFlmHost` | `127.0.0.1` | flm | Host binding for `flm serve --host` |
+| `NpuFlmPort` | `52625` | flm | Port for `flm serve --port` |
+| `NpuFlmCtxLen` | `0` | flm | Context length (`0` = model default, omit `--ctx-len`) |
+| `NpuFlmPmode` | `performance` | flm | NPU power mode: `powersaver`, `balanced`, `performance`, `turbo` |
 | `GpuEndpoint` | `http://localhost:8080` | both | Base URL of the OpenAI-compatible GPU backend |
 | `NpuLimit` | `65536` | both | Max tokens for NPU-only classification (set to match model's context window) |
 | `NpuSlice` | `2048` | both | Token count from the end when prompt exceeds NpuLimit |
@@ -205,9 +211,16 @@ C:\NeuroRoute\Models\
 
 #### FLM backend (`NpuBackend: "flm"`)
 
-NeuroRoute will auto-start `flm serve <NpuFlmModelTag>` as a child process on startup.
+NeuroRoute will auto-start `flm serve <NpuFlmModelTag>` with the configured host, port, context length, and power mode as a child process on startup:
+
+```
+flm serve <NpuFlmModelTag> --host <NpuFlmHost> --port <NpuFlmPort> --pmode <NpuFlmPmode> [--ctx-len <NpuFlmCtxLen>]
+```
+
 The model tag uses the FastFlowLM format — available tags with `flm list`.
 FastFlowLM must be installed on the machine (see [2.3 Install FastFlowLM](#23-install-fastflowlm-for-flm-backend)).
+
+Context length and power mode are hot-swappable via `POST /v1/admin/npu/load` without editing the config file, and can be persisted to `appsettings.json` with the `persist` flag.
 
 ### 4.4 Logging Levels
 
@@ -261,11 +274,14 @@ Start-Service -Name NeuroRoute
 
 When using `NpuBackend: "flm"`, NeuroRoute automatically:
 
-1. Detects `flm.exe` in PATH on startup
-2. Spawns `flm serve <NpuFlmModelTag>` as a child process
+1. Detects `flm.exe` — sideload dir first (`flm\flm.exe`), then PATH
+2. Spawns `flm serve <NpuFlmModelTag> --host <host> --port <port> --pmode <pmode>` (with `--ctx-len` if `NpuFlmCtxLen > 0`)
 3. Polls `GET /v1/models` every 500ms (up to 30s) until the server is ready
-4. Monitors the process; auto-restarts up to 3 times if it crashes
-5. Stops the FLM process on NeuroRoute service shutdown
+4. On ready: resets restart counter, records start time
+5. Monitors the process; auto-restarts up to 3 times if it crashes
+6. Stops the FLM process on NeuroRoute service shutdown
+7. Exposes structured status via `FlmProcessManager.GetStatus()` (model tag, host, port, ctxLen, pmode, pid, uptime)
+8. Supports live model switching via `FlmProcessManager.UpdateModel()` and `POST /v1/admin/npu/load`
 
 If `flm.exe` is not found, NeuroRoute logs a critical error and runs in degraded mode (all requests routed to GPU).
 
