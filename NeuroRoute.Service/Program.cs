@@ -78,8 +78,8 @@ else
         return sp.GetRequiredService<OnnxBackend>();
     });
 
-    // GPU HTTP client
-    builder.Services.AddHttpClient<GpuClient>((sp, client) =>
+    // GPU HTTP client (registered as IGpuClient interface)
+    builder.Services.AddHttpClient<IGpuClient, GpuClient>((sp, client) =>
     {
         var options = sp.GetRequiredService<IOptions<NeuroRouteOptions>>().Value;
         client.BaseAddress = new Uri(options.GpuEndpoint);

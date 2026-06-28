@@ -353,12 +353,16 @@ function Invoke-Install {
     Write-Step "FLM mode: $FlmMode"
     Write-Step "Source: $(if ($BuildFromSource) { 'Build from source' } else { 'Download from GitHub' })"
 
-    # Resolve FLM mode (interactive if needed)
+    # Resolve FLM mode (interactive if possible, fallback to parameter)
     $resolvedFlmMode = $FlmMode
     $globalFlm = Test-FlmInPath
     if ($globalFlm.Found -and $FlmMode -eq "Sideload") {
         Write-Step "FastFlowLM $($globalFlm.Version) detected globally"
-        $resolvedFlmMode = Show-InteractiveFlmChoice -GlobalVersion $globalFlm.Version -GlobalPath $globalFlm.Path
+        if ($Confirm) {
+            $resolvedFlmMode = Show-InteractiveFlmChoice -GlobalVersion $globalFlm.Version -GlobalPath $globalFlm.Path
+        } else {
+            Write-Step "Non-interactive shell — using --FlmMode parameter value: $FlmMode"
+        }
         Write-Step "Selected FLM mode: $resolvedFlmMode"
     }
 
