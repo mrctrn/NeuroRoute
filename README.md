@@ -23,10 +23,10 @@ User Request → Token Counter → NPU Classifier → [NPU generates | GPU escal
 - **Health monitoring** — component-level `/v1/health` endpoint
 - **Metrics endpoint** — routing ratios, task type distribution, latency
 - **Admin endpoints** — stop, restart backend, reload config, view logs
-- **Blazor Dashboard** — live health + metrics web UI (5s auto-refresh)
+- **Blazor Dashboard** — live health + metrics web UI (5s auto-refresh, installed as companion service)
 - **System Tray app** — WinForms NotifyIcon with health status + actions
 - **Mock backends** — run without real NPU/GPU for dev and testing
-- **One-command installer** — `install.ps1` handles FLM, config, service registration, shortcuts
+- **One-command installer** — `install.ps1` handles FLM, config, service registration (API + Dashboard), shortcuts
 - **Draft release pipeline** — GitHub Actions builds, tests, and publishes tagged releases
 - **Windows Service** — self-contained EXE, installs via `sc.exe`
 - **Model-agnostic** — swap models in `appsettings.json`, no code changes
@@ -58,13 +58,14 @@ Invoke-RestMethod -Uri http://localhost:5000/v1/chat/completions `
 ### One-Command Installer
 
 ```pwsh
-# Downloads, configures, and installs NeuroRoute + FastFlowLM as a Windows Service
+# Downloads, configures, and installs NeuroRoute + FastFlowLM
+# Installs both the API service and Dashboard as companion Windows Services
 .\install.ps1
 
 # Or build from source, skip FLM
 .\install.ps1 -BuildFromSource -FlmMode Skip
 
-# Uninstall
+# Uninstall (removes both services)
 .\install.ps1 -Uninstall
 ```
 
@@ -96,6 +97,9 @@ dotnet run --project NeuroRoute.Dashboard --urls http://localhost:5001
 ```
 
 Then open `http://localhost:5001`. Program the fakes via `POST /v1/admin/mock/scenario`.
+
+When installed as a service, both the API and Dashboard bind to `0.0.0.0`
+(accessible from other machines on the network).
 See [`docs/DEPLOYMENT.md`](docs/DEPLOYMENT.md#9-dev-mode--no-hardware-required) for details.
 
 ## License

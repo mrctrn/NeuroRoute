@@ -4,6 +4,8 @@ The NeuroRoute Dashboard is a Blazor Server web application that provides real-t
 
 ## Quick Start
 
+### Dev mode (manual)
+
 ```pwsh
 # Terminal 1: Service (mock mode, no hardware needed)
 $env:NeuroRoute__UseMockBackends = "true"
@@ -14,6 +16,11 @@ dotnet run --project NeuroRoute.Dashboard --urls http://localhost:5001
 ```
 
 Open `http://localhost:5001` in your browser.
+
+### Installed as Windows Service
+
+When installed via `install.ps1`, both the API and Dashboard run as
+Windows Services. Access the Dashboard at `http://<hostname>:5001`.
 
 See [Dev Mode](DEPLOYMENT.md#9-dev-mode--no-hardware-required) for more options.
 
@@ -149,7 +156,7 @@ The Dashboard reads from `appsettings.json` in `NeuroRoute.Dashboard`:
 ```json
 {
   "NeuroRouteApi": {
-    "BaseUrl": "http://localhost:5000",
+    "ServiceUrl": "http://localhost:5000",
     "TimeoutSeconds": 5
   }
 }
@@ -157,7 +164,7 @@ The Dashboard reads from `appsettings.json` in `NeuroRoute.Dashboard`:
 
 | Setting | Default | Description |
 |---------|---------|-------------|
-| `BaseUrl` | `http://localhost:5000` | NeuroRoute Service URL |
+| `ServiceUrl` | `http://localhost:5000` | NeuroRoute Service URL |
 | `TimeoutSeconds` | `5` | HTTP timeout for API calls |
 
 ## Architecture
@@ -195,10 +202,11 @@ The Dashboard polls the Service every 5 seconds. No database, no persistent stor
 
 ### Dashboard shows "Cannot reach NeuroRoute service"
 
-1. Ensure the Service is running: `dotnet run --project NeuroRoute.Service`
+1. Ensure the Service is running: `dotnet run --project NeuroRoute.Service` or `Get-Service NeuroRoute`
 2. Check the port: the Service defaults to `:5000`
-3. If using a different port, update `appsettings.json` in `NeuroRoute.Dashboard`
-4. Check for port conflicts: `netstat -ano | findstr :5000`
+3. If using a different port, update `NeuroRouteApi:ServiceUrl` in `NeuroRoute.Dashboard\appsettings.json`
+4. When running as a Windows Service, check both services: `Get-Service NeuroRoute, NeuroRouteDashboard`
+5. Check for port conflicts: `netstat -ano | findstr :5000`
 
 ### Charts show "Awaiting data" even with requests
 

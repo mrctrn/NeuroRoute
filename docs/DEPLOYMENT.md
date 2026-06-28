@@ -46,11 +46,11 @@ Invoke-WebRequest -Uri "https://github.com/mrctrn/NeuroRoute/releases/latest/dow
 | Phase | Action |
 |-------|--------|
 | Elevation | Auto-restarts as admin if needed |
-| FLM | Detects existing FLM → interactive choice; or sideloads/installs fresh |
-| NeuroRoute | Downloads release zip from GitHub (or builds from source) |
-| Config | Generates `appsettings.json` with correct backend, ports, paths |
-| Service | Registers as Windows Service via `sc.exe`, starts automatically |
-| Shortcuts | Adds Start Menu group with Dashboard URL, Tray, Uninstall |
+| FLM | Detects existing FLM → checks version (skips if valid); or sideloads/installs fresh |
+| NeuroRoute | Downloads release zip from GitHub (or builds from source: Service, Tray, Dashboard) |
+| Config | Generates `appsettings.json` for Service and Dashboard with correct backend, ports, paths |
+| Service | Registers `NeuroRoute` (API) and `NeuroRouteDashboard` as Windows Services, starts both |
+| Shortcuts | Adds Start Menu group with Dashboard URL, API Health, Tray, Uninstall |
 
 ### 1.5 Target Layout
 
@@ -60,8 +60,12 @@ C:\Program Files\NeuroRoute\
 ├── NeuroRoute.Tray.exe
 ├── appsettings.json
 ├── install.ps1
-├── flm\                        (if sideloaded)
+├── flm\                         (if sideloaded)
 │   └── flm.exe
+├── Dashboard\
+│   ├── NeuroRoute.Dashboard.exe
+│   ├── appsettings.json
+│   └── *.dll
 └── *.dll
 ```
 
@@ -168,21 +172,25 @@ Copy `appsettings.json` to the publish directory. All settings are in the `Neuro
 
 ### 4.2 Binding / Port
 
-The Kestrel section controls the HTTP endpoint:
+The Kestrel section controls the HTTP endpoint for the API service:
 
 ```json
 {
   "Kestrel": {
     "Endpoints": {
       "Http": {
-        "Url": "http://localhost:5000"
+        "Url": "http://0.0.0.0:5000"
       }
     }
   }
 }
 ```
 
-Change the port or bind to a network interface as needed. For production, consider HTTPS via reverse proxy (IIS, nginx).
+The Dashboard service binds to `http://0.0.0.0:5001` by default. Both
+bind to all interfaces so they're accessible from other machines on the
+network. Change the port or bind to a specific IP as needed.
+
+For production, consider HTTPS via reverse proxy (IIS, nginx).
 
 ### 4.3 Backend-specific config
 
@@ -265,17 +273,33 @@ If `flm.exe` is not found, NeuroRoute logs a critical error and runs in degraded
 
 The `--content-root` argument sets `IHostEnvironment.ContentRootPath` so that relative paths in `appsettings.json` (like `Models/gemma-4-int4.onnx`) resolve correctly. Alternatively, use absolute paths in config.
 
-### 5.5 Verify Installation
+### 5.5 Dashboard Service
+
+The Dashboard is registered as a companion Windows Service `NeuroRouteDashboard`
+on port 5001:
+
+```pwsh
+sc.exe create NeuroRouteDashboard `
+  binPath="C:\Program Files\NeuroRoute\Dashboard\NeuroRoute.Dashboard.exe --content-root C:\Program Files\NeuroRoute\Dashboard" `
+  start=auto
+
+sc.exe start NeuroRouteDashboard
+```
+
+### 5.6 Verify Installation
 
 ```pwsh
 # Check service status
-Get-Service NeuroRoute
+Get-Service NeuroRoute, NeuroRouteDashboard
 
 # Test API
 Invoke-RestMethod -Uri http://localhost:5000/v1/chat/completions `
   -Method Post `
   -Body '{"model":"neuro-route","messages":[{"role":"user","content":"ping"}],"max_tokens":16}' `
   -ContentType "application/json"
+
+# Test Dashboard
+Start-Process "http://localhost:5001"
 ```
 
 ---
@@ -285,9 +309,15 @@ Invoke-RestMethod -Uri http://localhost:5000/v1/chat/completions `
 ### Start / Stop / Restart
 
 ```pwsh
+# Main API service
 Start-Service NeuroRoute
 Stop-Service NeuroRoute
 Restart-Service NeuroRoute
+
+# Dashboard companion service
+Start-Service NeuroRouteDashboard
+Stop-Service NeuroRouteDashboard
+Restart-Service NeuroRouteDashboard
 ```
 
 ### Set Startup Type
@@ -295,18 +325,21 @@ Restart-Service NeuroRoute
 ```pwsh
 # Automatic (default)
 sc.exe config NeuroRoute start=auto
+sc.exe config NeuroRouteDashboard start=auto
 
 # Manual
 sc.exe config NeuroRoute start=demand
+sc.exe config NeuroRouteDashboard start=demand
 
 # Disabled
 sc.exe config NeuroRoute start=disabled
+sc.exe config NeuroRouteDashboard start=disabled
 ```
 
 ### View Status
 
 ```pwsh
-Get-Service NeuroRoute | Select-Object Name, Status, StartType
+Get-Service NeuroRoute, NeuroRouteDashboard | Select-Object Name, Status, StartType
 ```
 
 ---
@@ -527,16 +560,20 @@ Remove-ItemProperty -Path "HKCU:\Software\Microsoft\Windows\CurrentVersion\Run" 
 ## 11. Directory Layout (Production)
 
 ```
-C:\NeuroRoute\
-├── publish\
-│   ├── NeuroRoute.Service.exe
-│   ├── appsettings.json
+C:\Program Files\NeuroRoute\
+├── NeuroRoute.Service.exe         # API service
+├── NeuroRoute.Tray.exe            # System tray companion
+├── appsettings.json               # API service config
+├── install.ps1
+├── Dashboard\
+│   ├── NeuroRoute.Dashboard.exe   # Dashboard service
+│   ├── appsettings.json           # Dashboard config
 │   └── *.dll
-├── Models\                        <-- ONNX model (ONNX backend)
+├── flm\                           # FLM (if sideloaded)
+│   └── flm.exe
+├── Models\                        # ONNX model (ONNX backend)
 │   └── gemma-4-int4.onnx
-├── gpu-backend\                   <-- GPU server binary
-│   └── ...
-└── logs\                          <-- optional file logs
+└── *.dll
 ```
 
 > For FLM backend, models are stored in FLM's own directory (`C:\Users\<USER>\Documents\flm\models\`).
@@ -546,17 +583,19 @@ C:\NeuroRoute\
 ## 12. Uninstall
 
 ```pwsh
-# Stop the service
+# Stop both services
 Stop-Service NeuroRoute
+Stop-Service NeuroRouteDashboard
 
-# Delete
+# Delete both
 sc.exe delete NeuroRoute
+sc.exe delete NeuroRouteDashboard
 
-# Or via PowerShell
-Remove-Service -Name NeuroRoute
+# Or use the installer
+.\install.ps1 -Uninstall
 
 # Clean up files
-Remove-Item -Path C:\NeuroRoute -Recurse -Force
+Remove-Item -Path "C:\Program Files\NeuroRoute" -Recurse -Force
 ```
 
 ---
@@ -586,7 +625,7 @@ Get-WinEvent -FilterHashtable @{LogName='System'; ProviderName='Service Control 
 
 ## 14. Security Notes
 
-- By default, the service binds to `http://localhost:5000` (loopback only)
-- For remote access, put a reverse proxy (IIS ARR, nginx) with HTTPS in front
+- By default, the service binds to `http://0.0.0.0:5000` (all interfaces)
+- For production, put a reverse proxy (IIS ARR, nginx) with HTTPS in front
 - Do not expose the GPU backend directly — route through NeuroRoute
 - Run GPU backend on the same host bound to `127.0.0.1` only
