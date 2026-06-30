@@ -147,6 +147,6 @@ public sealed class FlmClient
         var end = text.LastIndexOf('}');
         if (start >= 0 && end > start)
             return text[start..(end + 1)];
-        return text;
+        return "{}";
     }
 }

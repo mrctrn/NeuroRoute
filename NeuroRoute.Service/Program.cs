@@ -123,6 +123,9 @@ else
 // NpuModel uses the selected INpuBackend
 builder.Services.AddSingleton<NpuModel>();
 
+// Worker auto-starts FLM backend when NpuBackend = flm
+builder.Services.AddHostedService<NeuroRoute.Service.Worker>();
+
 var app = builder.Build();
 app.UseMiddleware<NeuroRoute.Service.Diagnostics.RequestLoggingMiddleware>();
 app.MapControllers();
