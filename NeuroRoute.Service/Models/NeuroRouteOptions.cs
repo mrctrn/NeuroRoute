@@ -18,4 +18,6 @@ public sealed class NeuroRouteOptions
     public int GpuMaxRetries { get; set; } = 3;
     public int GpuTimeoutSeconds { get; set; } = 300;
     public bool UseMockBackends { get; set; }
+    public bool PassthroughMode { get; set; }
+    public bool GpuFallbackToNpu { get; set; } = true;
 }

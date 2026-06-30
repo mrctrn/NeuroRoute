@@ -18,6 +18,9 @@ public sealed class ChatCompletionChunk
 
     [JsonPropertyName("choices")]
     public List<ChunkChoice> Choices { get; set; } = [];
+
+    [JsonPropertyName("_neuroroute")]
+    public NeuroRouteMetadata? NeuroRouteMeta { get; set; }
 }
 
 public sealed class ChunkChoice

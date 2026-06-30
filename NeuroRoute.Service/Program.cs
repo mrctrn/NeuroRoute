@@ -15,6 +15,8 @@ builder.Services.Configure<NeuroRouteOptions>(
     builder.Configuration.GetSection(NeuroRouteOptions.SectionName));
 
 builder.Services.AddControllers();
+builder.Services.AddSingleton<IConfigurationRoot>(sp =>
+    (IConfigurationRoot)sp.GetRequiredService<IConfiguration>());
 
 builder.Services.AddSingleton<ITokenizer, ApproximateTokenizer>();
 builder.Services.AddSingleton<PromptBuilder>();
@@ -22,6 +24,16 @@ builder.Services.AddSingleton<NpuPlanner>();
 builder.Services.AddSingleton<Router>();
 builder.Services.AddSingleton<HealthService>();
 builder.Services.AddSingleton<MetricsService>();
+builder.Services.AddSingleton<RuntimeSettings>(sp =>
+{
+    var config = sp.GetRequiredService<IConfiguration>();
+    var section = config.GetSection("NeuroRoute");
+    return new RuntimeSettings
+    {
+        PassthroughMode = section.GetValue<bool>("PassthroughMode"),
+        GpuFallbackToNpu = section.GetValue<bool?>("GpuFallbackToNpu") ?? true
+    };
+});
 
 // Mock or real backends based on config
 var neuroRouteSection = builder.Configuration.GetSection(NeuroRouteOptions.SectionName);

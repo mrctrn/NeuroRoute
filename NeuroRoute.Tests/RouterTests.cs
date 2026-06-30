@@ -29,7 +29,8 @@ public sealed class RouterTests
         var metrics = new MetricsService();
         var logger = NullLogger<Router>.Instance;
 
-        _sut = new Router(planner, promptBuilder, npuModel, gpuClient, metrics, logger);
+        var runtimeSettings = new RuntimeSettings();
+        _sut = new Router(planner, promptBuilder, npuModel, gpuClient, metrics, runtimeSettings, logger);
     }
 
     [Fact]

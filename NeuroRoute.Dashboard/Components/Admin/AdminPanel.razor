@@ -18,11 +18,68 @@
         <MudButton Variant="Variant.Filled" Color="Color.Error" OnClick="@(() => ConfirmAction("Stop Service", "Are you sure you want to stop the NeuroRoute service? The dashboard and API will become unavailable.", Api.StopServiceAsync))" Disabled="@_isBusy">
             Stop Service
         </MudButton>
+
+        <MudDivider Class="my-4" />
+
+        <MudText Typo="Typo.subtitle2" Class="mb-2">Runtime Settings</MudText>
+
+        <MudSwitch T="bool"
+                   Checked="_passthroughMode"
+                   Color="Color.Primary"
+                   Label="Passthrough Mode"
+                   HelperText="Skip routing, send all requests directly to NPU"
+                   CheckedChanged="@(async (bool v) => { _passthroughMode = v; await TogglePassthroughAsync(v); })" />
+
+        <MudSwitch T="bool"
+                   Checked="_gpuFallback"
+                   Color="Color.Primary"
+                   Label="GPU Fallback to NPU"
+                   HelperText="When GPU is unreachable, fall back to NPU instead of erroring"
+                   CheckedChanged="@(async (bool v) => { _gpuFallback = v; await ToggleGpuFallbackAsync(v); })" />
     </MudCardContent>
 </MudCard>
 
 @code {
     private bool _isBusy;
+    private bool _passthroughMode;
+    private bool _gpuFallback = true;
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadSettingsAsync();
+    }
+
+    private async Task LoadSettingsAsync()
+    {
+        try
+        {
+            var settings = await Api.GetSettingsAsync();
+            if (settings is not null)
+            {
+                _passthroughMode = settings.PassthroughMode;
+                _gpuFallback = settings.GpuFallbackToNpu;
+            }
+        }
+        catch { }
+    }
+
+    private async Task TogglePassthroughAsync(bool value)
+    {
+        var success = await Api.UpdateSettingsAsync(new { passthroughMode = value });
+        if (success)
+            Snackbar.Add(value ? "Passthrough mode enabled" : "Passthrough mode disabled", Severity.Success);
+        else
+            Snackbar.Add("Failed to update passthrough mode", Severity.Error);
+    }
+
+    private async Task ToggleGpuFallbackAsync(bool value)
+    {
+        var success = await Api.UpdateSettingsAsync(new { gpuFallbackToNpu = value });
+        if (success)
+            Snackbar.Add(value ? "GPU fallback enabled" : "GPU fallback disabled", Severity.Success);
+        else
+            Snackbar.Add("Failed to update GPU fallback", Severity.Error);
+    }
 
     private async Task ConfirmAction(string title, string message, Func<Task<bool>> action)
     {

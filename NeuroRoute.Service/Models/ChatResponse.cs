@@ -21,6 +21,9 @@ public sealed class ChatResponse
 
     [JsonPropertyName("usage")]
     public UsageInfo? Usage { get; set; }
+
+    [JsonPropertyName("_neuroroute")]
+    public NeuroRouteMetadata? NeuroRouteMeta { get; set; }
 }
 
 public sealed class ChatChoice

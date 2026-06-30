@@ -69,6 +69,25 @@ public sealed class NeuroRouteApiClient
         }
     }
 
+    public async Task<RuntimeSettingsDto?> GetSettingsAsync(CancellationToken ct = default)
+    {
+        try
+        {
+            return await _http.GetFromJsonAsync<RuntimeSettingsDto>("/v1/admin/settings", ct);
+        }
+        catch { return null; }
+    }
+
+    public async Task<bool> UpdateSettingsAsync(object settings)
+    {
+        try
+        {
+            var response = await _http.PostAsJsonAsync("/v1/admin/settings", settings);
+            return response.IsSuccessStatusCode;
+        }
+        catch { return false; }
+    }
+
     public async Task<bool> StopServiceAsync()
     {
         try

@@ -15,6 +15,9 @@ public sealed class MockGpuClient : IGpuClient
 
     public Task<ChatResponse> SendAsync(ChatRequest request, CancellationToken ct = default)
     {
+        if (!_scenario.GpuAvailable)
+            throw new InvalidOperationException("Mock GPU is not available");
+
         if (_scenario.SimulatedLatencyMs > 0)
             Task.Delay(_scenario.SimulatedLatencyMs, ct).Wait(ct);
 
@@ -36,6 +39,9 @@ public sealed class MockGpuClient : IGpuClient
         ChatRequest request,
         [EnumeratorCancellation] CancellationToken ct = default)
     {
+        if (!_scenario.GpuAvailable)
+            throw new InvalidOperationException("Mock GPU is not available");
+
         var id = Guid.NewGuid().ToString("N");
         var created = DateTimeOffset.UtcNow.ToUnixTimeSeconds();
 

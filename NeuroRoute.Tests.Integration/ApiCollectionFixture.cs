@@ -200,6 +200,17 @@ public sealed class ChatResponseDto
     [JsonPropertyName("model")] public string Model { get; set; } = string.Empty;
     [JsonPropertyName("choices")] public List<ChatChoiceDto> Choices { get; set; } = [];
     [JsonPropertyName("usage")] public UsageInfoDto? Usage { get; set; }
+    [JsonPropertyName("_neuroroute")] public NeuroRouteMetaDto? NeuroRouteMeta { get; set; }
+}
+
+public sealed class NeuroRouteMetaDto
+{
+    [JsonPropertyName("backend")] public string Backend { get; set; } = string.Empty;
+    [JsonPropertyName("fallback")] public bool Fallback { get; set; }
+    [JsonPropertyName("passthrough")] public bool Passthrough { get; set; }
+    [JsonPropertyName("duration_ms")] public double DurationMs { get; set; }
+    [JsonPropertyName("task_type")] public string? TaskType { get; set; }
+    [JsonPropertyName("routing_case")] public string? RoutingCase { get; set; }
 }
 
 public sealed class ChatChoiceDto

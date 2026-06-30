@@ -1,6 +1,7 @@
 using Microsoft.AspNetCore.Mvc;
 using NeuroRoute.Service.Models;
 using NeuroRoute.Service.Npu;
+using NeuroRoute.Service.Services;
 using Microsoft.Extensions.Options;
 using System.Diagnostics.Eventing.Reader;
 
@@ -12,17 +13,19 @@ public sealed class AdminController : ControllerBase
 {
     private readonly IHostApplicationLifetime _lifetime;
     private readonly FlmProcessManager? _flmProcessManager;
-    private readonly OnnxSessionFactory _onnxSessionFactory;
+    private readonly OnnxSessionFactory? _onnxSessionFactory;
     private readonly IOptions<NeuroRouteOptions> _options;
     private readonly IConfigurationRoot _configuration;
+    private readonly RuntimeSettings _runtimeSettings;
     private readonly ILogger<AdminController> _logger;
 
     public AdminController(
         IHostApplicationLifetime lifetime,
-        OnnxSessionFactory onnxSessionFactory,
         IOptions<NeuroRouteOptions> options,
         IConfigurationRoot configuration,
+        RuntimeSettings runtimeSettings,
         ILogger<AdminController> logger,
+        OnnxSessionFactory? onnxSessionFactory = null,
         FlmProcessManager? flmProcessManager = null)
     {
         _lifetime = lifetime;
@@ -30,6 +33,7 @@ public sealed class AdminController : ControllerBase
         _onnxSessionFactory = onnxSessionFactory;
         _options = options;
         _configuration = configuration;
+        _runtimeSettings = runtimeSettings;
         _logger = logger;
     }
 
@@ -59,7 +63,7 @@ public sealed class AdminController : ControllerBase
                 await _flmProcessManager.StopAsync();
                 await _flmProcessManager.StartAsync(CancellationToken.None);
             }
-            else
+            else if (_onnxSessionFactory is not null)
             {
                 _onnxSessionFactory.ResetSession();
             }
@@ -78,6 +82,35 @@ public sealed class AdminController : ControllerBase
         _logger.LogInformation("Admin: reloading configuration");
         _configuration.Reload();
         return Ok(new { message = "Configuration reloaded" });
+    }
+
+    [HttpGet("settings")]
+    public IActionResult GetSettings()
+    {
+        return Ok(new
+        {
+            passthroughMode = _runtimeSettings.PassthroughMode,
+            gpuFallbackToNpu = _runtimeSettings.GpuFallbackToNpu
+        });
+    }
+
+    [HttpPost("settings")]
+    public IActionResult UpdateSettings([FromBody] SettingsUpdateRequest update)
+    {
+        if (update.PassthroughMode.HasValue)
+            _runtimeSettings.PassthroughMode = update.PassthroughMode.Value;
+        if (update.GpuFallbackToNpu.HasValue)
+            _runtimeSettings.GpuFallbackToNpu = update.GpuFallbackToNpu.Value;
+
+        _logger.LogInformation("Runtime settings updated: PassthroughMode={Pm}, GpuFallbackToNpu={Gf}",
+            _runtimeSettings.PassthroughMode, _runtimeSettings.GpuFallbackToNpu);
+
+        return Ok(new
+        {
+            passthroughMode = _runtimeSettings.PassthroughMode,
+            gpuFallbackToNpu = _runtimeSettings.GpuFallbackToNpu,
+            message = "Settings updated"
+        });
     }
 
     [HttpGet("logs")]
@@ -105,4 +138,10 @@ public sealed class AdminController : ControllerBase
         }
         return Ok(entries);
     }
+}
+
+public sealed class SettingsUpdateRequest
+{
+    public bool? PassthroughMode { get; init; }
+    public bool? GpuFallbackToNpu { get; init; }
 }

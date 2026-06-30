@@ -1,4 +1,5 @@
 using System.Text;
+using System.Text.Json.Serialization;
 
 namespace NeuroRoute.Tests.Integration;
 
@@ -191,4 +192,52 @@ public sealed class EdgeCaseTests
             response.StatusCode == System.Net.HttpStatusCode.InternalServerError,
             $"Expected 200 or 500, got {(int)response.StatusCode}");
     }
+
+    [Fact]
+    public async Task AdminSettings_GetReturnsCurrentValues()
+    {
+        var response = await _fixture.HttpClient.GetAsync("/v1/admin/settings");
+        Assert.Equal(System.Net.HttpStatusCode.OK, response.StatusCode);
+
+        var settings = await _fixture.DeserializeAsync<AdminSettingsDto>(response);
+        Assert.False(settings.PassthroughMode);
+        Assert.True(settings.GpuFallbackToNpu);
+    }
+
+    [Fact]
+    public async Task AdminSettings_PostUpdatesPassthroughMode()
+    {
+        var postResponse = await _fixture.HttpClient.PostAsync("/v1/admin/settings",
+            new StringContent("{\"passthroughMode\":true}", Encoding.UTF8, "application/json"));
+        Assert.Equal(System.Net.HttpStatusCode.OK, postResponse.StatusCode);
+
+        var getResponse = await _fixture.HttpClient.GetAsync("/v1/admin/settings");
+        var settings = await _fixture.DeserializeAsync<AdminSettingsDto>(getResponse);
+        Assert.True(settings.PassthroughMode);
+
+        await _fixture.HttpClient.PostAsync("/v1/admin/settings",
+            new StringContent("{\"passthroughMode\":false}", Encoding.UTF8, "application/json"));
+    }
+
+    [Fact]
+    public async Task AdminSettings_PostPartialUpdate()
+    {
+        var postResponse = await _fixture.HttpClient.PostAsync("/v1/admin/settings",
+            new StringContent("{\"gpuFallbackToNpu\":false}", Encoding.UTF8, "application/json"));
+        Assert.Equal(System.Net.HttpStatusCode.OK, postResponse.StatusCode);
+
+        var getResponse = await _fixture.HttpClient.GetAsync("/v1/admin/settings");
+        var settings = await _fixture.DeserializeAsync<AdminSettingsDto>(getResponse);
+        Assert.False(settings.GpuFallbackToNpu);
+        Assert.False(settings.PassthroughMode);
+
+        await _fixture.HttpClient.PostAsync("/v1/admin/settings",
+            new StringContent("{\"gpuFallbackToNpu\":true}", Encoding.UTF8, "application/json"));
+    }
+}
+
+public sealed class AdminSettingsDto
+{
+    [JsonPropertyName("passthroughMode")] public bool PassthroughMode { get; set; }
+    [JsonPropertyName("gpuFallbackToNpu")] public bool GpuFallbackToNpu { get; set; }
 }

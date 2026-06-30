@@ -45,14 +45,20 @@ Aggregated routing metrics including request counts, routing case breakdown, tas
     "message": { "role": "assistant", "content": "..." },
     "finish_reason": "stop"
   }],
-  "usage": { "prompt_tokens": 10, "completion_tokens": 50, "total_tokens": 60 }
+  "usage": { "prompt_tokens": 10, "completion_tokens": 50, "total_tokens": 60 },
+  "_neuroroute": {
+    "mode": "routed",
+    "backend": "npu",
+    "fallback": false,
+    "duration_ms": 42
+  }
 }
 ```
 
 ### Response (streaming — SSE)
 
 ```
-data: {"id":"...","object":"chat.completion.chunk","choices":[{"index":0,"delta":{"role":"assistant"},"finish_reason":null}]}
+data: {"id":"...","object":"chat.completion.chunk","choices":[{"index":0,"delta":{"role":"assistant"},"finish_reason":null}],"_neuroroute":{"mode":"routed","backend":"npu","fallback":false,"duration_ms":42}}
 
 data: {"id":"...","object":"chat.completion.chunk","choices":[{"index":0,"delta":{"content":"Hello"},"finish_reason":null}]}
 
@@ -60,6 +66,19 @@ data: {"id":"...","object":"chat.completion.chunk","choices":[{"index":0,"delta"
 
 data: [DONE]
 ```
+
+### Response Headers
+
+Every response includes the following HTTP headers containing routing metadata:
+
+| Header | Example | Description |
+|--------|---------|-------------|
+| `X-NeuroRoute-Mode` | `routed` | Routing mode: `routed` or `passthrough` |
+| `X-NeuroRoute-Backend` | `npu` | Backend that generated the response: `npu` or `gpu` |
+| `X-NeuroRoute-Fallback` | `false` | Whether a GPU→NPU fallback occurred (`true`/`false`) |
+| `X-NeuroRoute-Duration-Ms` | `42` | Total request processing time in milliseconds |
+
+Non-streaming responses and the first SSE chunk also include a `_neuroroute` JSON object with the same routing metadata.
 
 ---
 
@@ -177,6 +196,8 @@ The context window limit (`NpuLimit`, default 65536) and slice size (`NpuSlice`,
     "NpuSlice": 2048,
     "GpuMaxRetries": 3,
     "GpuTimeoutSeconds": 300,
+    "PassthroughMode": false,
+    "GpuFallbackToNpu": true,
     "UseMockBackends": false
   }
 }
@@ -198,6 +219,8 @@ The context window limit (`NpuLimit`, default 65536) and slice size (`NpuSlice`,
 | `GpuMaxRetries` | 3 | both | Retry attempts for GPU requests |
 | `GpuTimeoutSeconds` | 300 | both | GPU request timeout |
 | `UseMockBackends` | false | both | When true, replaces real NPU/GPU backends with programmable mocks for dev/test |
+| `PassthroughMode` | false | both | When true, skip planner/classification and route all requests directly to NPU |
+| `GpuFallbackToNpu` | true | both | When true, fall back to NPU if GPU is unreachable instead of returning an error |
 
 ## 9. Admin Mock Endpoints
 
@@ -225,7 +248,44 @@ When using `NpuBackend: "flm"`, the following endpoints manage the FLM model lif
 
 Context window (`ctxLen`) and power mode (`pmode`) updates can be persisted to `appsettings.json` by setting `"persist": true`.
 
-## 11. Deployment
+## 11. Admin Settings Endpoints
+
+Runtime settings can be read and updated without restarting the service:
+
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| GET | `/v1/admin/settings` | Returns current runtime settings |
+| POST | `/v1/admin/settings` | Partially updates runtime settings (JSON body) |
+
+### GET /v1/admin/settings
+
+Returns the current state of runtime-toggleable settings:
+
+```json
+{
+  "passthroughMode": false,
+  "gpuFallbackToNpu": true
+}
+```
+
+### POST /v1/admin/settings
+
+Accepts a partial settings object. Only included fields are updated:
+
+```json
+{
+  "passthroughMode": true
+}
+```
+
+Changes take effect immediately for all subsequent requests. Settings are **not** persisted to `appsettings.json` by default — they revert to the configured value on service restart.
+
+| Field | Type | Default | Description |
+|-------|------|---------|-------------|
+| `passthroughMode` | bool | false | When true, skip planner/classification and route all requests directly to NPU |
+| `gpuFallbackToNpu` | bool | true | When true, fall back to NPU if GPU is unreachable instead of returning an error |
+
+## 12. Deployment
 
 - Build: `dotnet publish -r win-x64 --self-contained`
 - Install as Windows Service: `sc create NeuroRoute binPath=...\NeuroRoute.Service.exe`

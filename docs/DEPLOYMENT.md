@@ -175,6 +175,8 @@ Copy `appsettings.json` to the publish directory. All settings are in the `Neuro
 | `NpuSlice` | `2048` | both | Token count from the end when prompt exceeds NpuLimit |
 | `GpuMaxRetries` | `3` | both | Retry attempts for GPU requests |
 | `GpuTimeoutSeconds` | `300` | both | GPU request timeout |
+| `PassthroughMode` | `false` | both | When true, skip planner/classification and route all requests directly to NPU |
+| `GpuFallbackToNpu` | `true` | both | When true, fall back to NPU if GPU is unreachable instead of returning an error |
 
 ### 4.2 Binding / Port
 

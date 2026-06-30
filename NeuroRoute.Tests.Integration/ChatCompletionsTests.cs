@@ -352,6 +352,202 @@ public sealed class ChatCompletionsTests
     }
 
     [Fact]
+    public async Task NonStreaming_PassthroughMode_SendsToNpu()
+    {
+        await _fixture.ResetScenarioAsync();
+
+        var settingsResponse = await _fixture.HttpClient.PostAsync("/v1/admin/settings",
+            new StringContent("{\"passthroughMode\":true}", Encoding.UTF8, "application/json"));
+        settingsResponse.EnsureSuccessStatusCode();
+
+        await _fixture.ProgramScenarioAsync(new
+        {
+            needsGpu = true,
+            npuResponseText = "Passthrough NPU response",
+            gpuAvailable = false
+        });
+
+        var response = await _fixture.MakeChatRequestAsync(new ChatRequestDto
+        {
+            Messages = [new ChatMessageDto { Role = "user", Content = "Hello" }]
+        });
+
+        Assert.Equal(System.Net.HttpStatusCode.OK, response.StatusCode);
+        var result = await _fixture.DeserializeAsync<ChatResponseDto>(response);
+
+        Assert.Equal("Passthrough NPU response", result.Choices[0].Message?.Content);
+
+        await _fixture.HttpClient.PostAsync("/v1/admin/settings",
+            new StringContent("{\"passthroughMode\":false}", Encoding.UTF8, "application/json"));
+        await _fixture.ResetScenarioAsync();
+    }
+
+    [Fact]
+    public async Task NonStreaming_GpuFallback_ReturnsNpuResponse()
+    {
+        await _fixture.ResetScenarioAsync();
+
+        await _fixture.HttpClient.PostAsync("/v1/admin/settings",
+            new StringContent("{\"passthroughMode\":false,\"gpuFallbackToNpu\":true}", Encoding.UTF8, "application/json"));
+
+        await _fixture.ProgramScenarioAsync(new
+        {
+            needsGpu = true,
+            npuResponseText = "Fallback NPU response",
+            gpuAvailable = false
+        });
+
+        var response = await _fixture.MakeChatRequestAsync(new ChatRequestDto
+        {
+            Messages = [new ChatMessageDto { Role = "user", Content = "Complex task" }]
+        });
+
+        Assert.Equal(System.Net.HttpStatusCode.OK, response.StatusCode);
+        var result = await _fixture.DeserializeAsync<ChatResponseDto>(response);
+
+        Assert.Equal("Fallback NPU response", result.Choices[0].Message?.Content);
+
+        await _fixture.ResetScenarioAsync();
+    }
+
+    [Fact]
+    public async Task NonStreaming_GpuFallbackDisabled_ThrowsError()
+    {
+        await _fixture.ResetScenarioAsync();
+
+        await _fixture.HttpClient.PostAsync("/v1/admin/settings",
+            new StringContent("{\"passthroughMode\":false,\"gpuFallbackToNpu\":false}", Encoding.UTF8, "application/json"));
+
+        await _fixture.ProgramScenarioAsync(new
+        {
+            needsGpu = true,
+            gpuAvailable = false
+        });
+
+        var response = await _fixture.MakeChatRequestAsync(new ChatRequestDto
+        {
+            Messages = [new ChatMessageDto { Role = "user", Content = "Complex task" }]
+        });
+
+        Assert.Equal(System.Net.HttpStatusCode.InternalServerError, response.StatusCode);
+
+        await _fixture.HttpClient.PostAsync("/v1/admin/settings",
+            new StringContent("{\"gpuFallbackToNpu\":true}", Encoding.UTF8, "application/json"));
+        await _fixture.ResetScenarioAsync();
+    }
+
+    [Fact]
+    public async Task NonStreaming_ContainsNeuroRouteMetadata()
+    {
+        await _fixture.ResetScenarioAsync();
+
+        var response = await _fixture.MakeChatRequestAsync(new ChatRequestDto
+        {
+            Messages = [new ChatMessageDto { Role = "user", Content = "Hello" }]
+        });
+
+        var result = await _fixture.DeserializeAsync<ChatResponseDto>(response);
+        Assert.NotNull(result.NeuroRouteMeta);
+        Assert.Equal("npu", result.NeuroRouteMeta.Backend);
+        Assert.False(result.NeuroRouteMeta.Fallback);
+        Assert.False(result.NeuroRouteMeta.Passthrough);
+        Assert.True(result.NeuroRouteMeta.DurationMs > 0);
+        Assert.Equal("simple_chat", result.NeuroRouteMeta.TaskType);
+    }
+
+    [Fact]
+    public async Task NonStreaming_NeuroRouteMetadata_OnGpuRoute()
+    {
+        await _fixture.ProgramScenarioAsync(new
+        {
+            needsGpu = true,
+            gpuResponseText = "GPU response with meta",
+            gpuAvailable = true
+        });
+
+        var response = await _fixture.MakeChatRequestAsync(new ChatRequestDto
+        {
+            Messages = [new ChatMessageDto { Role = "user", Content = "Complex" }]
+        });
+
+        var result = await _fixture.DeserializeAsync<ChatResponseDto>(response);
+        Assert.NotNull(result.NeuroRouteMeta);
+        Assert.Equal("gpu", result.NeuroRouteMeta.Backend);
+        Assert.False(result.NeuroRouteMeta.Fallback);
+
+        await _fixture.ResetScenarioAsync();
+    }
+
+    [Fact]
+    public async Task NonStreaming_NeuroRouteMetadata_OnFallback()
+    {
+        await _fixture.HttpClient.PostAsync("/v1/admin/settings",
+            new StringContent("{\"passthroughMode\":false,\"gpuFallbackToNpu\":true}", Encoding.UTF8, "application/json"));
+
+        await _fixture.ProgramScenarioAsync(new
+        {
+            needsGpu = true,
+            npuResponseText = "Fallback meta test",
+            gpuAvailable = false
+        });
+
+        var response = await _fixture.MakeChatRequestAsync(new ChatRequestDto
+        {
+            Messages = [new ChatMessageDto { Role = "user", Content = "Complex" }]
+        });
+
+        var result = await _fixture.DeserializeAsync<ChatResponseDto>(response);
+        Assert.NotNull(result.NeuroRouteMeta);
+        Assert.Equal("npu", result.NeuroRouteMeta.Backend);
+        Assert.True(result.NeuroRouteMeta.Fallback);
+
+        await _fixture.ResetScenarioAsync();
+    }
+
+    [Fact]
+    public async Task NonStreaming_NeuroRouteMetadata_PassthroughMode()
+    {
+        await _fixture.HttpClient.PostAsync("/v1/admin/settings",
+            new StringContent("{\"passthroughMode\":true}", Encoding.UTF8, "application/json"));
+
+        var response = await _fixture.MakeChatRequestAsync(new ChatRequestDto
+        {
+            Messages = [new ChatMessageDto { Role = "user", Content = "Hello" }]
+        });
+
+        var result = await _fixture.DeserializeAsync<ChatResponseDto>(response);
+        Assert.NotNull(result.NeuroRouteMeta);
+        Assert.True(result.NeuroRouteMeta.Passthrough);
+        Assert.Null(result.NeuroRouteMeta.TaskType);
+        Assert.Null(result.NeuroRouteMeta.RoutingCase);
+
+        await _fixture.HttpClient.PostAsync("/v1/admin/settings",
+            new StringContent("{\"passthroughMode\":false}", Encoding.UTF8, "application/json"));
+    }
+
+    [Fact]
+    public async Task NonStreaming_ContainsHttpHeaders()
+    {
+        await _fixture.ResetScenarioAsync();
+
+        var json = System.Text.Json.JsonSerializer.Serialize(new ChatRequestDto
+        {
+            Messages = [new ChatMessageDto { Role = "user", Content = "Hello" }]
+        }, new System.Text.Json.JsonSerializerOptions
+        {
+            PropertyNamingPolicy = System.Text.Json.JsonNamingPolicy.CamelCase
+        });
+
+        using var content = new StringContent(json, Encoding.UTF8, "application/json");
+        using var response = await _fixture.HttpClient.PostAsync("/v1/chat/completions", content);
+
+        Assert.True(response.Headers.Contains("X-NeuroRoute-Mode"));
+        Assert.True(response.Headers.Contains("X-NeuroRoute-Backend"));
+        Assert.True(response.Headers.Contains("X-NeuroRoute-Fallback"));
+        Assert.True(response.Headers.Contains("X-NeuroRoute-Duration-Ms"));
+    }
+
+    [Fact]
     public async Task Streaming_LastChunk_HasFinishReason()
     {
         await _fixture.ResetScenarioAsync();
